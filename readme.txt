@@ -1,7 +1,7 @@
 === WP-FFPC ===
 Contributors: cadeyrn
 Tags: cache, APC, memcached, full page cache
-Requires at least: 2.7
+Requires at least: 3.0
 Tested up to: 3.3
 Stable tag: 0.1
 
@@ -17,7 +17,7 @@ The naming stands for Fast Full Page Cache.
 
 If used in WordPress Network, the configuration will only be available for network admins at the network admin panel, and will be system-wide and will be applied for every blog.
 
-Some parts were based on Hyper Cache plugin by Satollo (info@satollo.net).
+Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") plugin by Satollo (info@satollo.net).
 
 
 = Usage =
