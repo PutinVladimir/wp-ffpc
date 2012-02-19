@@ -384,6 +384,22 @@ location @rewrites {
 
 				<? endif; ?>
 
+				<fieldset class="grid50">
+				<legend><?php _e('Settings for APC', WP_FFPC_PARAM); ?></legend>
+				<dl>
+
+					<dt>
+						<label for="apc_compress"><?php _e("Compress entries", WP_FFPC_PARAM); ?></label>
+					</dt>
+					<dd>
+						<input type="checkbox" name="apc_compress" id="apc_compress" value="1" <?php checked($this->options['apc_compress'],true); ?> />
+						<span class="description"><?php _e('Try to compress APC entries. Requires PHP ZLIB.', WP_FFPC_PARAM); ?></span>
+						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php $this->print_bool( $this->defaults['apc_compress']); ?></span>
+					</dd>
+
+				</dl>
+				</fieldset>
+
 				<p class="clearcolumns"><input class="button-primary" type="submit" name="<?php echo WP_FFPC_PARAM; ?>-save" id="<?php echo WP_FFPC_PARAM; ?>-save" value="Save Changes" /></p>
 			</form>
 			<?php
@@ -509,6 +525,7 @@ location @rewrites {
 				'nocache_archive' => false,
 				'nocache_single' => false,
 				'nocache_page' => false,
+				'apc_compress' => false,
 			);
 
 			$this->defaults = $defaults;
@@ -603,8 +620,11 @@ location @rewrites {
 
 			update_site_option( WP_FFPC_PARAM , $this->options );
 
+			$this->invalidate('system_flush');
+
 			if ( ! $firstrun )
 				$this->generate_config();
+
 		}
 
 		/**

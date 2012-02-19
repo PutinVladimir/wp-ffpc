@@ -80,8 +80,10 @@ function wp_ffpc_clear ( $post_id = false ) {
 	global $wp_ffpc_config;
 	global $post;
 
+	$post_only = ( $post_id === 'system_flush' ) ? false : $wp_ffpc_config['invalidation_method'];
+
 	/* post invalidation enabled */
-	if ( $wp_ffpc_config['invalidation_method'] )
+	if ( $post_only )
 	{
 		$path = substr ( get_permalink($post_id) , 7 );
 		if (empty($path))
@@ -94,7 +96,7 @@ function wp_ffpc_clear ( $post_id = false ) {
 	{
 		/* in case of apc */
 		case 'apc':
-			if ( $wp_ffpc_config['invalidation_method'] )
+			if ( $post_only )
 			{
 				apc_delete ( $meta );
 				apc_delete ( $data );
@@ -110,7 +112,7 @@ function wp_ffpc_clear ( $post_id = false ) {
 		case 'memcache':
 		case 'memcached':
 			global $wp_ffpc_backend;
-			if ( $wp_ffpc_config['invalidation_method'] )
+			if ( $post_only )
 			{
 				$wp_ffpc_backend->delete( $meta );
 				$wp_ffpc_backend->delete( $data );
@@ -135,13 +137,15 @@ function wp_ffpc_clear ( $post_id = false ) {
  * @param &$data	store value, passed by reference for speed
  *
  */
-function wp_ffpc_set ( &$key, &$data ) {
+function wp_ffpc_set ( &$key, &$data, $compress = false ) {
 	global $wp_ffpc_config;
 
 	switch ($wp_ffpc_config['cache_type'])
 	{
 		case 'apc':
 			/* use apc_store to overwrite data is existed */
+			if ( $compress )
+				$data = gzdeflate ( $data , 1 );
 			apc_store( $key , $data , $wp_ffpc_config['expire']);
 			break;
 		case 'memcache':
@@ -160,15 +164,18 @@ function wp_ffpc_set ( &$key, &$data ) {
  * gets cached element by key
  *
  * @param &$key: key of needed cache element
- * 
+ *
  */
-function wp_ffpc_get( &$key ) {
+function wp_ffpc_get( &$key , $uncompress = false ) {
 	global $wp_ffpc_config;
 
 	switch ($wp_ffpc_config['cache_type'])
 	{
 		case 'apc':
-			return apc_fetch($key);
+			$value = apc_fetch($key);
+			if ( $uncompress )
+				$value = gzinflate ( $value );
+			return $value;
 		case 'memcache':
 		case 'memcached':
 			global $wp_ffpc_backend;

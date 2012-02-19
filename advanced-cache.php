@@ -70,16 +70,23 @@ $wp_ffpc_data_key = $wp_ffpc_config['prefix_data'] . $_SERVER['HTTP_HOST'] . $wp
 global $wp_ffpc_meta_key;
 $wp_ffpc_meta_key = $wp_ffpc_config['prefix_meta'] . $_SERVER['HTTP_HOST'] . $wp_ffpc_uri;
 
-/* search for valid data entry */
-global $wp_ffpc_data;
-$wp_ffpc_data = wp_ffpc_get ( $wp_ffpc_data_key );
-
 /* search for valid meta entry */
 global $wp_ffpc_meta;
 $wp_ffpc_meta = wp_ffpc_get ( $wp_ffpc_meta_key );
 
+/* meta is corrupted or empty */
+if ( !$wp_ffpc_meta ) {
+	wp_ffpc_start();
+	return;
+}
+
+/* search for valid data entry */
+global $wp_ffpc_data;
+$uncompress = ( isset($wp_ffpc_meta['compressed']) ) ? $wp_ffpc_meta['compressed'] : false;
+$wp_ffpc_data = wp_ffpc_get ( $wp_ffpc_data_key , $uncompress );
+
 /* data is corrupted or empty */
-if ( !$wp_ffpc_data || !$wp_ffpc_meta ) {
+if ( !$wp_ffpc_data ) {
 	wp_ffpc_start();
 	return;
 }
@@ -240,10 +247,17 @@ function wp_ffpc_callback($buffer) {
 		if (!empty ( $post->post_modified_gmt ) )
 			$wp_ffpc_meta['lastmodified'] = strtotime ( $post->post_modified_gmt );
 	}
+
+	/* APC compression */
+	$compress = ( ($wp_ffpc_config['cache_type'] == 'apc') && $wp_ffpc_config['apc_compress'] ) ? true : false;
+	$wp_ffpc_meta['compressed'] = $compress;
+
 	/* set meta */
 	wp_ffpc_set ( $wp_ffpc_meta_key, $wp_ffpc_meta );
+
 	/* set data */
-	wp_ffpc_set ( $wp_ffpc_data_key, $buffer );
+	$data = $buffer;
+	wp_ffpc_set ( $wp_ffpc_data_key, $data , $compress );
 
 	/* vital for nginx version */
 	header("HTTP/1.1 200 OK");
