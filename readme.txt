@@ -25,7 +25,9 @@ PHP has two extension for communication with a memcached server, named Memcache 
 * nginx compatible(3)
 
 (1) pingback hostname will always be generated from the accessed domain, otherwise speed would get highly compromised
+
 (2) If used in WordPress Network, the configuration will only be available for network admins at the network admin panel, and will be system-wide and will be applied for every blog.
+
 (3) nginx compatility means that if used with PHP Memcache (not Memcached!) extension, the created memcached entries can be read and served directly from nginx, making the cache insanely fast.
 If used with APC or Memcached, this feature is not available (no APC module for nginx, compression incompatibility with Memcached), although, naturally, the cache modul is functional and working, but it will be done by PHP instead of nginx.
 Short nginx example configuration is generated on the plugin settings page if Memcache is selected as cache type.
@@ -43,6 +45,12 @@ Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper
 == Upgrade Notice ==
 
 == Changelog ==
+
+= 0.2 =
+2012.02.19
+
+* added APC compression option ( requires PHP ZLIB ). Useful is output pages are large. Compression is on lowest level, therefore size/CPU load is more or less optimal.
+
 
 = 0.1 =
 2012.02.16
