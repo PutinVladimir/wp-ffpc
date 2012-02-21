@@ -20,18 +20,15 @@ if ( function_exists('wp_ffpc_init') || function_exists('wp_ffpc_clear') || func
  * 		  if false, backend will be globally initiated
  * 		  when set, backend will not become global, just tested if alive
  */
-function wp_ffpc_init( $type = false ) {
-	global $wp_ffpc_config;
+function wp_ffpc_init( $wp_ffpc_config ) {
+	global $wp_ffpc_backend;
 	$wp_ffpc_backend_status = false;
 
-	$reg_backend = $type;
-	// $type is to test an exact backend */
-	if ( !$type )
-		$type = $wp_ffpc_config['cache_type'];
-
+	if ( empty ( $wp_ffpc_config ))
+		global $wp_ffpc_config;
 
 	/* verify selected storage is available */
-	switch ($type)
+	switch ( $wp_ffpc_config['cache_type'] )
 	{
 		/* in case of apc */
 		case 'apc':
@@ -49,10 +46,11 @@ function wp_ffpc_init( $type = false ) {
 			/* Memcache class does not exist, Memcache extension is not available */
 			if (!class_exists('Memcache'))
 				return false;
-			if ($reg_backend)
-				global $wp_ffpc_backend;
-			$wp_ffpc_backend = new Memcache();
-			$wp_ffpc_backend->addServer( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
+			if ( $wp_ffpc_backend == NULL )
+			{
+				$wp_ffpc_backend = new Memcache();
+				$wp_ffpc_backend->addServer( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
+			}
 			$wp_ffpc_backend_status = $wp_ffpc_backend->getServerStatus( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
 			break;
 
@@ -61,10 +59,11 @@ function wp_ffpc_init( $type = false ) {
 			/* Memcached class does not exist, Memcached extension is not available */
 			if (!class_exists('Memcached'))
 				return false;
-			if ($reg_backend)
-				global $wp_ffpc_backend;
-			$wp_ffpc_backend = new Memcached();
-			$wp_ffpc_backend->addServer( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
+			if ( $wp_ffpc_backend == NULL )
+			{
+				$wp_ffpc_backend = new Memcached();
+				$wp_ffpc_backend->addServer( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
+			}
 			$wp_ffpc_backend_status = array_key_exists( $wp_ffpc_config['host'] . ':' . $wp_ffpc_config['port'] , $wp_ffpc_backend->getStats() );
 			break;
 
@@ -143,6 +142,7 @@ function wp_ffpc_clear ( $post_id = false ) {
  */
 function wp_ffpc_set ( &$key, &$data, $compress = false ) {
 	global $wp_ffpc_config;
+	global $wp_ffpc_backend;
 
 	switch ($wp_ffpc_config['cache_type'])
 	{
@@ -150,16 +150,20 @@ function wp_ffpc_set ( &$key, &$data, $compress = false ) {
 			/* use apc_store to overwrite data is existed */
 			if ( $compress )
 				$data = gzdeflate ( $data , 1 );
-			apc_store( $key , $data , $wp_ffpc_config['expire']);
+			return apc_store( $key , $data , $wp_ffpc_config['expire']);
 			break;
 		case 'memcache':
-			global $wp_ffpc_backend;
-			/* false to disable compression, vital for nginx */
-			$wp_ffpc_backend->set ( $key, $data , false, $wp_ffpc_config['expire'] );
+			if ( $wp_ffpc_backend != NULL )
+				/* false to disable compression, vital for nginx */
+				$wp_ffpc_backend->set ( $key, $data , false, $wp_ffpc_config['expire'] );
+			else
+				return false;
 			break;
 		case 'memcached':
-			global $wp_ffpc_backend;
-			$wp_ffpc_backend->set ( $key, $data , $wp_ffpc_config['expire'] );
+			if ( $wp_ffpc_backend != NULL )
+				$wp_ffpc_backend->set ( $key, $data , $wp_ffpc_config['expire'] );
+			else
+				return false;
 			break;
 	}
 }
@@ -172,6 +176,7 @@ function wp_ffpc_set ( &$key, &$data, $compress = false ) {
  */
 function wp_ffpc_get( &$key , $uncompress = false ) {
 	global $wp_ffpc_config;
+	global $wp_ffpc_backend;
 
 	switch ($wp_ffpc_config['cache_type'])
 	{
@@ -182,8 +187,10 @@ function wp_ffpc_get( &$key , $uncompress = false ) {
 			return $value;
 		case 'memcache':
 		case 'memcached':
-			global $wp_ffpc_backend;
-			return $wp_ffpc_backend->get($key);
+			if ( $wp_ffpc_backend != NULL )
+				return $wp_ffpc_backend->get($key);
+			else
+				return false;
 		default:
 			return false;
 	}

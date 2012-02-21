@@ -3,7 +3,7 @@ Contributors: cadeyrn
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
 Tested up to: 3.3.1
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 
 Fast Full Page Cache, backend can be memcached or APC
 
@@ -46,17 +46,20 @@ Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper
 
 == Changelog ==
 
+= 0.2.2 =
+2012.02.21
+
+* memcache types bugfix, reported in forum, thanks!
+
 = 0.2.1 =
 2012.02.21
 
 * bugfix, duplicated inclusion could emerge, fix added, thanks for Géza Kuti for reporting!
 
-
 = 0.2 =
 2012.02.19
 
 * added APC compression option ( requires PHP ZLIB ). Useful is output pages are large. Compression is on lowest level, therefore size/CPU load is more or less optimal.
-
 
 = 0.1 =
 2012.02.16

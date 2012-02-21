@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.2.1
+Version: 0.2.2
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: Fast Full Page Cache, backend can be memcached or APC
 Author: Peter Molnar
@@ -75,7 +75,7 @@ if (!class_exists('WPFFPC')) {
 			$this->get_options();
 
 			/* check is backend is available */
-			$alive = wp_ffpc_init( $this->options['cache_type'] );
+			$alive = wp_ffpc_init( $this->options );
 
 			/* don't register hooks if backend is dead */
 			if ($alive)
@@ -328,12 +328,9 @@ if (!class_exists('WPFFPC')) {
 				<div>
 					<strong><?php _e( 'Memcached server status: ', WP_FFPC_PARAM ) ; ?>
 					<?php
-						if (class_exists('Memcache'))
-							$server_status = wp_ffpc_init('memcache');
-						elseif (class_exists('Memcached'))
-							$server_status = wp_ffpc_init('memcached');
+						$server_status = wp_ffpc_init( $this->options);
 
-						$server_status = ( $server_status ) ? '<span class="error-msg">down</span>' : '<span class="ok-msg">up & running</span>' ;
+						$server_status = ( empty($server_status) || $server_status == 0 ) ? '<span class="error-msg">down</span>' : '<span class="ok-msg">up & running</span>' ;
 						echo $server_status;
 					?>
 					</strong>
