@@ -363,20 +363,14 @@ if (!class_exists('WPFFPC')) {
 
 				<fieldset class="grid50">
 				<legend><?php _e('Sample config for nginx to utilize the data entries', WP_FFPC_PARAM); ?></legend>
-				<pre>location / {
-	try_files $uri $uri/ @memcached;
-}
+				<?php
+					$search = array( 'DATAPREFIX', 'MEMCACHEDHOST', 'MEMCACHEDPORT');
+					$replace = array ( $this->options['prefix_data'], $this->options['host'], $this->options['port'] );
+					$nginx = file_get_contents ( WP_FFPC_DIR .'/nginx-sample.conf' );
+					$nginx = str_replace ( $search , $replace , $nginx );
 
-location @memcached {
-	default_type text/html;
-	set $memcached_key <?php echo $this->options['prefix_data'];?>$host$request_uri;
-	memcached_pass <?php echo $this->options['host'];?>:<?php echo $this->options['port'];?>;
-	error_page 404 = @rewrites;
-}
-
-location @rewrites {
-	rewrite ^(.*)$ /index.php?q=$1 last;
-}</pre>
+				?>
+				<pre><?php echo $nginx; ?></pre>
 				</fieldset>
 
 				<? endif; ?>
