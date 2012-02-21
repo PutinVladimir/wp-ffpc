@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.2.2
+Version: 0.2.3
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: Fast Full Page Cache, backend can be memcached or APC
 Author: Peter Molnar
@@ -250,6 +250,15 @@ if (!class_exists('WPFFPC')) {
 					</dd>
 
 					<dt>
+						<label for="syslog"><?php _e("Enable syslog messages", WP_FFPC_PARAM); ?></label>
+					</dt>
+					<dd>
+						<input type="checkbox" name="syslog" id="syslog" value="1" <?php checked($this->options['syslog'],true); ?> />
+						<span class="description"><?php _e('Writes sets and reads and some additional info into syslog, using "syslog" function of PHP.', WP_FFPC_PARAM); ?></span>
+						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php $this->print_bool( $this->defaults['syslog']); ?></span>
+					</dd>
+
+					<dt>
 						<label for="pingback_status"><?php _e("Enable pingback links", WP_FFPC_PARAM); ?></label>
 					</dt>
 					<dd>
@@ -325,8 +334,9 @@ if (!class_exists('WPFFPC')) {
 					<h1 class="error">No PHP memcached extension was found. To use memcached, you need PHP Memcache or PHP Memcached extension.</h1>
 				<?php endif; ?>
 
+				<?php if ( $this->options['cache_type'] == 'memcached' || $this->options['cache_type'] == 'memcache' ) : ?>
 				<div>
-					<strong><?php _e( 'Memcached server status: ', WP_FFPC_PARAM ) ; ?>
+					<strong><?php _e( 'Backend status: ', WP_FFPC_PARAM ) ; ?>
 					<?php
 						$server_status = wp_ffpc_init( $this->options);
 
@@ -335,6 +345,7 @@ if (!class_exists('WPFFPC')) {
 					?>
 					</strong>
 				</div>
+				<?php endif; ?>
 
 				<dl>
 
@@ -508,7 +519,8 @@ if (!class_exists('WPFFPC')) {
 				'prefix_data' =>'data-',
 				'charset' => 'utf-8',
 				'pingback_status'=> false,
-				'debug' => 1,
+				'debug' => true,
+				'syslog' => false,
 				'cache_type' => 'memcache',
 				'cache_loggedin' => false,
 				'nocache_home' => false,
