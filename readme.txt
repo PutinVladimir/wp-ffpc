@@ -3,7 +3,7 @@ Contributors: cadeyrn
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
 Tested up to: 3.3.1
-Stable tag: 0.2.3
+Stable tag: 0.2.4
 
 Fast Full Page Cache, backend can be memcached or APC
 
@@ -45,6 +45,12 @@ Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper
 == Upgrade Notice ==
 
 == Changelog ==
+
+= 0.3 =
+2012.02.21
+
+* added syslog debug messages possibility
+* bugfix: removed short_open_tags from config file
 
 = 0.2.3 =
 2012.02.21

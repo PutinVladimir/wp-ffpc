@@ -9,6 +9,15 @@
 global $wp_ffpc_backend;
 global $wp_nmc_redirect;
 
+/* wp ffpc prefic */
+if (!defined('WP_FFPC_PARAM'))
+	define ( 'WP_FFPC_PARAM' , 'wp-ffpc' );
+/* log level */
+define ('WP_FFPC_LOG_LEVEL' , LOG_INFO);
+/* define log ending message */
+define ('WP_FFPC_LOG_TYPE_MSG' , '; cache type: '. $wp_ffpc_config['cache_type'] );
+
+
 /* safety rules if file has been already included */
 if ( function_exists('wp_ffpc_init') || function_exists('wp_ffpc_clear') || function_exists('wp_ffpc_set') || function_exists('wp_ffpc_get') )
 	return false;
@@ -102,12 +111,20 @@ function wp_ffpc_clear ( $post_id = false ) {
 			if ( $post_only )
 			{
 				apc_delete ( $meta );
+				if ($wp_ffpc_config['syslog'])
+					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' clearing key: "'. $meta . '"' . WP_FFPC_LOG_TYPE_MSG );
 				apc_delete ( $data );
+				if ($wp_ffpc_config['syslog'])
+					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' clearing key: "'. $data . '"' . WP_FFPC_LOG_TYPE_MSG );
 			}
 			else
 			{
 				apc_clear_cache('user');
+				if ($wp_ffpc_config['syslog'])
+					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' flushing user cache' . WP_FFPC_LOG_TYPE_MSG );
 				apc_clear_cache('system');
+				if ($wp_ffpc_config['syslog'])
+					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' flushing system cache' . WP_FFPC_LOG_TYPE_MSG );
 			}
 			break;
 
@@ -118,11 +135,17 @@ function wp_ffpc_clear ( $post_id = false ) {
 			if ( $post_only )
 			{
 				$wp_ffpc_backend->delete( $meta );
+				if ($wp_ffpc_config['syslog'])
+					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' clearing key: "'. $meta . '"' . WP_FFPC_LOG_TYPE_MSG );
 				$wp_ffpc_backend->delete( $data );
+				if ($wp_ffpc_config['syslog'])
+					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' clearing key: "'. $data . '"' . WP_FFPC_LOG_TYPE_MSG );
 			}
 			else
 			{
 				$wp_ffpc_backend->flush();
+				if ($wp_ffpc_config['syslog'])
+					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' flushing cache' . WP_FFPC_LOG_TYPE_MSG );
 			}
 			break;
 
@@ -143,6 +166,18 @@ function wp_ffpc_clear ( $post_id = false ) {
 function wp_ffpc_set ( &$key, &$data, $compress = false ) {
 	global $wp_ffpc_config;
 	global $wp_ffpc_backend;
+
+	/* syslog */
+	if ($wp_ffpc_config['syslog'])
+	{
+		if ( @is_array( $data ) )
+			$string = serialize($data);
+		elseif ( @is_string( $data ))
+			$string = $data;
+
+		$size = strlen($string);
+		syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' set key: "'. $key . '", size: '. $size . ' byte(s)' . WP_FFPC_LOG_TYPE_MSG );
+	}
 
 	switch ($wp_ffpc_config['cache_type'])
 	{
@@ -177,6 +212,10 @@ function wp_ffpc_set ( &$key, &$data, $compress = false ) {
 function wp_ffpc_get( &$key , $uncompress = false ) {
 	global $wp_ffpc_config;
 	global $wp_ffpc_backend;
+
+	/* syslog */
+	if ($wp_ffpc_config['syslog'])
+		syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' get key: "'.$key . '"' . WP_FFPC_LOG_TYPE_MSG );
 
 	switch ($wp_ffpc_config['cache_type'])
 	{
