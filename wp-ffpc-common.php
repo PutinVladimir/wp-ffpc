@@ -9,6 +9,10 @@
 global $wp_ffpc_backend;
 global $wp_nmc_redirect;
 
+/* safety rules if file has been already included */
+if ( function_exists('wp_ffpc_init') || function_exists('wp_ffpc_clear') || function_exists('wp_ffpc_set') || function_exists('wp_ffpc_get') )
+	return false;
+
 /**
  * init and backend alive check function
  *

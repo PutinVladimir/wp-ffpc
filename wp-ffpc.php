@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.2
+Version: 0.2.1
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: Fast Full Page Cache, backend can be memcached or APC
 Author: Peter Molnar
@@ -44,7 +44,7 @@ define ( 'WP_FFPC_ACACHE_INC_FILE' , WP_FFPC_DIR. '/advanced-cache.php' );
 define ( 'WP_FFPC_ACACHE_COMMON_FILE' , WP_FFPC_DIR. '/wp-ffpc-common.php' );
 define ( 'WP_FFPC_CONFIG_VAR' , '$wp_ffpc_config' );
 
-include (WP_FFPC_DIR .'/wp-ffpc-common.php');
+include_once (WP_FFPC_DIR .'/wp-ffpc-common.php');
 
 if (!class_exists('WPFFPC')) {
 
