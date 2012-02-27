@@ -1,5 +1,6 @@
 === WP-FFPC ===
 Contributors: cadeyrn
+Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=8LZ66LGFLMKJW&lc=HU&item_name=Peter%20Molnar%20photographer%2fdeveloper&item_number=petermolnar%2dpaypal%2ddonation&currency_code=USD&bn=PP%2dDonationsBF%3acredit%2epng%3aNonHosted
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
 Tested up to: 3.3.1
@@ -43,7 +44,16 @@ Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper
 
 == Frequently Asked Questions ==
 
-== Upgrade Notice ==
+= '%3C' character on home page load =
+**Description**: When the page address is entered by hand, it gets redirected to `page.address/%3C`.
+
+**Solution**: only occurs with memcached, the reason is yet unknown. The bug has emerged once for me as well, setting up everything and restarting the memcached server solved it.
+
+= random-like characters instead of page =
+**Description**: when nginx is used with memcached, characters like `xœí}ksÛ8²èg»`  shows up instead of the page.
+
+**Solution**: this is the zlib compression of the page text. If PHP uses Memcached (with the 'd' at the ending), the compression cannot be turned off (it should, but it does not) and nginx is unable to read out the entries.
+Please use only the Memcache extension. You also need to select it on the settings site, this is because some hosts may provide both PHP extensions, and if it's not going to be used with nginx, Memcached is better.
 
 == Changelog ==
 
