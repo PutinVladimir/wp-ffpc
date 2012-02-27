@@ -42,10 +42,10 @@ function wp_ffpc_init( $wp_ffpc_config ) {
 		/* in case of apc */
 		case 'apc':
 			/* verify apc functions exist, apc ext is loaded */
-			if (!function_exists('apc_cache_info'))
+			if (!function_exists('apc_sma_info'))
 				return false;
 			/* verify apc is working */
-			if ( !apc_cache_info() )
+			if ( !apc_sma_info() )
 				return false;
 			$wp_ffpc_backend_status = true;
 			break;
