@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=8LZ66
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
 Tested up to: 3.3.1
-Stable tag: 0.3
+Stable tag: 0.3.2
 
 Fast Full Page Cache, backend can be memcached or APC
 
@@ -56,6 +56,11 @@ Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper
 Please use only the Memcache extension. You also need to select it on the settings site, this is because some hosts may provide both PHP extensions, and if it's not going to be used with nginx, Memcached is better.
 
 == Changelog ==
+
+= 0.3.2 =
+2012.02.27
+
+* apc_cache_info replaced with apc_sma_info, makes plugin faster
 
 = 0.3 =
 2012.02.21
