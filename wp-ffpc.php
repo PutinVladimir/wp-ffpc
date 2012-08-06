@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.3.2
+Version: 0.4
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: Fast Full Page Cache, backend can be memcached or APC
 Author: Peter Molnar
@@ -26,9 +26,27 @@ License: GPL2
 
 */
 
+/**
+ *  checks for SSL connection 
+*/
+if ( ! function_exists ( 'replace_if_ssl' ) ) {
+	function replace_if_ssl ( $string ) {
+		if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) )
+			return str_replace ( 'http://' , 'https://' , $string );
+		else
+			return $string;
+	}
+}
+
 /* fix */
-if ( ! defined( 'WP_PLUGIN_URL' ) )
-	define( 'WP_PLUGIN_URL', get_option( 'siteurl' ) . '/wp-content/plugins' );
+if ( ! defined( 'WP_PLUGIN_URL_' ) )
+{
+	if ( defined( 'WP_PLUGIN_URL' ) )
+		define( 'WP_PLUGIN_URL_' , replace_if_ssl ( WP_PLUGIN_URL ) );
+	else
+		define( 'WP_PLUGIN_URL_', replace_if_ssl ( get_option( 'siteurl' ) ) . '/wp-content/plugins' );
+}
+
 if ( ! defined( 'WP_PLUGIN_DIR' ) )
 	define( 'WP_PLUGIN_DIR', ABSPATH . 'wp-content/plugins' );
 
@@ -36,7 +54,7 @@ if ( ! defined( 'WP_PLUGIN_DIR' ) )
 define ( 'WP_FFPC_PARAM' , 'wp-ffpc' );
 define ( 'WP_FFPC_OPTION_GROUP' , 'wp-ffpcparams' );
 define ( 'WP_FFPC_OPTIONS_PAGE' , 'wp-ffpcoptions' );
-define ( 'WP_FFPC_URL' , WP_PLUGIN_URL . '/' . WP_FFPC_PARAM  );
+define ( 'WP_FFPC_URL' , WP_PLUGIN_URL_ . '/' . WP_FFPC_PARAM  );
 define ( 'WP_FFPC_DIR' , WP_PLUGIN_DIR . '/' . WP_FFPC_PARAM );
 define ( 'WP_FFPC_CONF_DIR' , WP_PLUGIN_DIR . '/' . WP_FFPC_PARAM .'/config' );
 define ( 'WP_FFPC_ACACHE_MAIN_FILE' , ABSPATH . 'wp-content/advanced-cache.php' );
@@ -173,7 +191,7 @@ if (!class_exists('WPFFPC')) {
 			<?php endif; ?>
 
 			<div class="wrap">
-			<h2><?php _e( 'NMC settings', WP_FFPC_PARAM ) ; ?></h2>
+			<h2><?php _e( 'WP-FFPC settings', WP_FFPC_PARAM ) ; ?></h2>
 			<form method="post" action="#">
 
 				<fieldset>
@@ -370,7 +388,7 @@ if (!class_exists('WPFFPC')) {
 				</dl>
 				</fieldset>
 
-				<?php if ( $this->options['cache_type'] == 'memcache' ) : ?>
+				<?php if ( $this->options['cache_type'] == 'memcache' || $this->options['cache_type'] == 'memcached'  ) : ?>
 
 				<fieldset class="grid50">
 				<legend><?php _e('Sample config for nginx to utilize the data entries', WP_FFPC_PARAM); ?></legend>

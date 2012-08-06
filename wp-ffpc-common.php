@@ -71,6 +71,8 @@ function wp_ffpc_init( $wp_ffpc_config ) {
 			if ( $wp_ffpc_backend == NULL )
 			{
 				$wp_ffpc_backend = new Memcached();
+				$wp_ffpc_backend->setOption( Memcached::OPT_COMPRESSION , false );
+				$wp_ffpc_backend->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
 				$wp_ffpc_backend->addServer( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
 			}
 			$wp_ffpc_backend_status = array_key_exists( $wp_ffpc_config['host'] . ':' . $wp_ffpc_config['port'] , $wp_ffpc_backend->getStats() );
@@ -111,20 +113,16 @@ function wp_ffpc_clear ( $post_id = false ) {
 			if ( $post_only )
 			{
 				apc_delete ( $meta );
-				if ($wp_ffpc_config['syslog'])
-					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' clearing key: "'. $meta . '"' . WP_FFPC_LOG_TYPE_MSG );
+				wp_ffpc_log (  ' clearing key: "'. $meta . '"' );
 				apc_delete ( $data );
-				if ($wp_ffpc_config['syslog'])
-					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' clearing key: "'. $data . '"' . WP_FFPC_LOG_TYPE_MSG );
+				wp_ffpc_log ( ' clearing key: "'. $data . '"' );
 			}
 			else
 			{
 				apc_clear_cache('user');
-				if ($wp_ffpc_config['syslog'])
-					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' flushing user cache' . WP_FFPC_LOG_TYPE_MSG );
+				wp_ffpc_log ( ' flushing user cache' );
 				apc_clear_cache('system');
-				if ($wp_ffpc_config['syslog'])
-					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' flushing system cache' . WP_FFPC_LOG_TYPE_MSG );
+				wp_ffpc_log ( ' flushing system cache' );
 			}
 			break;
 
@@ -135,17 +133,14 @@ function wp_ffpc_clear ( $post_id = false ) {
 			if ( $post_only )
 			{
 				$wp_ffpc_backend->delete( $meta );
-				if ($wp_ffpc_config['syslog'])
-					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' clearing key: "'. $meta . '"' . WP_FFPC_LOG_TYPE_MSG );
+				wp_ffpc_log ( ' clearing key: "'. $meta . '"' );
 				$wp_ffpc_backend->delete( $data );
-				if ($wp_ffpc_config['syslog'])
-					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' clearing key: "'. $data . '"' . WP_FFPC_LOG_TYPE_MSG );
+				wp_ffpc_log ( ' clearing key: "'. $data . '"' );
 			}
 			else
 			{
 				$wp_ffpc_backend->flush();
-				if ($wp_ffpc_config['syslog'])
-					syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' flushing cache' . WP_FFPC_LOG_TYPE_MSG );
+				wp_ffpc_log ( ' flushing cache' );
 			}
 			break;
 
@@ -167,6 +162,8 @@ function wp_ffpc_set ( &$key, &$data, $compress = false ) {
 	global $wp_ffpc_config;
 	global $wp_ffpc_backend;
 
+	$exp = $wp_ffpc_config['user_logged_in'] ? $wp_ffpc_config['expire_member'] : $wp_ffpc_config['expire_visitor'];
+
 	/* syslog */
 	if ($wp_ffpc_config['syslog'])
 	{
@@ -176,7 +173,7 @@ function wp_ffpc_set ( &$key, &$data, $compress = false ) {
 			$string = $data;
 
 		$size = strlen($string);
-		syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' set key: "'. $key . '", size: '. $size . ' byte(s)' . WP_FFPC_LOG_TYPE_MSG );
+		wp_ffpc_log ( ' set key: "'. $key . '", size: '. $size . ' byte(s)' );
 	}
 
 	switch ($wp_ffpc_config['cache_type'])
@@ -185,18 +182,18 @@ function wp_ffpc_set ( &$key, &$data, $compress = false ) {
 			/* use apc_store to overwrite data is existed */
 			if ( $compress )
 				$data = gzdeflate ( $data , 1 );
-			return apc_store( $key , $data , $wp_ffpc_config['expire']);
+			return apc_store( $key , $data , $exp );
 			break;
 		case 'memcache':
 			if ( $wp_ffpc_backend != NULL )
 				/* false to disable compression, vital for nginx */
-				$wp_ffpc_backend->set ( $key, $data , false, $wp_ffpc_config['expire'] );
+				$wp_ffpc_backend->set ( $key, $data , false, $exp );
 			else
 				return false;
 			break;
 		case 'memcached':
 			if ( $wp_ffpc_backend != NULL )
-				$wp_ffpc_backend->set ( $key, $data , $wp_ffpc_config['expire'] );
+				$wp_ffpc_backend->set ( $key, $data , $exp );
 			else
 				return false;
 			break;
@@ -214,8 +211,7 @@ function wp_ffpc_get( &$key , $uncompress = false ) {
 	global $wp_ffpc_backend;
 
 	/* syslog */
-	if ($wp_ffpc_config['syslog'])
-		syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . ' get key: "'.$key . '"' . WP_FFPC_LOG_TYPE_MSG );
+	wp_ffpc_log ( ' get key: "'.$key . '"' );
 
 	switch ($wp_ffpc_config['cache_type'])
 	{
@@ -233,5 +229,20 @@ function wp_ffpc_get( &$key , $uncompress = false ) {
 		default:
 			return false;
 	}
+}
+
+
+/**
+ * handles log messages
+ *
+ * @param $string log messagr
+ */
+function wp_ffpc_log ( $string ) {
+	global $wp_ffpc_config;
+
+	/* syslog */
+	if ($wp_ffpc_config['syslog'] && function_exists('syslog') )
+		syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . $string . WP_FFPC_LOG_TYPE_MSG );
+
 }
 ?>

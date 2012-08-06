@@ -3,8 +3,8 @@ Contributors: cadeyrn
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=8LZ66LGFLMKJW&lc=HU&item_name=Peter%20Molnar%20photographer%2fdeveloper&item_number=petermolnar%2dpaypal%2ddonation&currency_code=USD&bn=PP%2dDonationsBF%3acredit%2epng%3aNonHosted
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
-Tested up to: 3.3.1
-Stable tag: 0.3.2
+Tested up to: 3.4.1
+Stable tag: 0.4
 
 Fast Full Page Cache, backend can be memcached or APC
 
@@ -30,9 +30,10 @@ PHP has two extension for communication with a memcached server, named Memcache 
 
 (2) If used in WordPress Network, the configuration will only be available for network admins at the network admin panel, and will be system-wide and will be applied for every blog.
 
-(3) nginx compatility means that if used with PHP Memcache (not Memcached!) extension, the created memcached entries can be read and served directly from nginx, making the cache insanely fast.
-If used with APC or Memcached, this feature is not available (no APC module for nginx, compression incompatibility with Memcached), although, naturally, the cache modul is functional and working, but it will be done by PHP instead of nginx.
-Short nginx example configuration is generated on the plugin settings page if Memcache is selected as cache type.
+(3) nginx compatility means that if used with PHP Memcache or PHP Memcached extension, the created memcached entries can be read and served directly from nginx, making the cache insanely fast.
+If used with APC, this feature is not available (no APC module for nginx), although, naturally, the cache modul is functional and working, but it will be done by PHP instead of nginx.
+Short nginx example configuration is generated on the plugin settings page if Memcache or Memcached is selected as cache type.
+NOTE: some features ( like pingback link in HTTP header ) will not be available with this solution! ( yet )
 
 Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") plugin by Satollo (info@satollo.net).
 
@@ -44,18 +45,36 @@ Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper
 
 == Frequently Asked Questions ==
 
-= '%3C' character on home page load =
-**Description**: When the page address is entered by hand, it gets redirected to `page.address/%3C`.
+= Known bugs =
 
+1. '%3C' character on home page load
+**Description**: When the page address is entered by hand, it gets redirected to `page.address/%3C`.
 **Solution**: only occurs with memcached, the reason is yet unknown. The bug has emerged once for me as well, setting up everything and restarting the memcached server solved it.
 
-= random-like characters instead of page =
+2. random-like characters instead of page
+***SOLVED, description below is outdated***
 **Description**: when nginx is used with memcached, characters like `xœí}ksÛ8²èg»`  shows up instead of the page.
-
 **Solution**: this is the zlib compression of the page text. If PHP uses Memcached (with the 'd' at the ending), the compression cannot be turned off (it should, but it does not) and nginx is unable to read out the entries.
-Please use only the Memcache extension. You also need to select it on the settings site, this is because some hosts may provide both PHP extensions, and if it's not going to be used with nginx, Memcached is better.
+Please use only the Memcache extension. You also need to select it on the settings site, this is because some hosts may provide both PHP extensions.
+
+
+= How to install memcache PHP extension? =
+You need to have PECL on your machine. If it's ready, type `pecl install memcache` as root.
+Some additional libraries can also be needed, but that varies by linux distributions.
+
+= How to use the plugin on Amazon Linux? =
+You have to remove the default yum package, named `php-pecl-memcache` and install `Memcache` with PECL.
 
 == Changelog ==
+
+= 0.4 =
+2012.08.06
+* tested against new WordPress versions
+* added lines to "memcached" storage to be able to work with nginx as well
+* added lines to "memcached" to use binary protocol ( tested with PHP Memcached version 2.0.1 )
+
+KNOWN ISSUES
+* "memcache" extension fails in binary mode; the reason is under investigation
 
 = 0.3.2 =
 2012.02.27
