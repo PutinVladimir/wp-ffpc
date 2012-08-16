@@ -69,11 +69,13 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 
 = 0.4 =
 2012.08.06
+
 * tested against new WordPress versions
 * added lines to "memcached" storage to be able to work with nginx as well
 * added lines to "memcached" to use binary protocol ( tested with PHP Memcached version 2.0.1 )
 
 KNOWN ISSUES
+
 * "memcache" extension fails in binary mode; the reason is under investigation
 
 = 0.3.2 =

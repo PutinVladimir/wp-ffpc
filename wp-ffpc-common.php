@@ -102,8 +102,9 @@ function wp_ffpc_clear ( $post_id = false ) {
 		$path = substr ( get_permalink($post_id) , 7 );
 		if (empty($path))
 			return false;
-		$meta = $wp_ffpc_config['prefix-meta'] . $path;
-		$data = $wp_ffpc_config['prefix-data'] . $path;
+		$wp_ffpc_data_key_protocol = empty ( $_SERVER['HTTPS'] ) ? 'http://' : 'https://';
+		$meta = $wp_ffpc_config['prefix-meta'] . $wp_ffpc_data_key_protocol . $path;
+		$data = $wp_ffpc_config['prefix-data'] . $wp_ffpc_data_key_protocol . $path;
 	}
 
 	switch ($wp_ffpc_config['cache_type'])
