@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.4
+Version: 0.4.1
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: Fast Full Page Cache, backend can be memcached or APC
 Author: Peter Molnar
@@ -27,7 +27,7 @@ License: GPL2
 */
 
 /**
- *  checks for SSL connection 
+ *  checks for SSL connection
 */
 if ( ! function_exists ( 'replace_if_ssl' ) ) {
 	function replace_if_ssl ( $string ) {

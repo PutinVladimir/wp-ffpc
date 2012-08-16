@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=8LZ66
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
 Tested up to: 3.4.1
-Stable tag: 0.4
+Stable tag: 0.4.1
 
 Fast Full Page Cache, backend can be memcached or APC
 
@@ -66,6 +66,14 @@ Some additional libraries can also be needed, but that varies by linux distribut
 You have to remove the default yum package, named `php-pecl-memcache` and install `Memcache` with PECL.
 
 == Changelog ==
+
+= 0.4.1 =
+2012.08.16
+
+* storage key extended with scheme ( http; https; etc. ), the miss caused problems when https request server CSS and JS files via http.
+
+KNOWN ISSUES
+
 
 = 0.4 =
 2012.08.06
