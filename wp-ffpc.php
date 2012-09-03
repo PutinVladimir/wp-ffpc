@@ -377,7 +377,7 @@ if (!class_exists('WPFFPC')) {
 					</dd>
 
 					<dt>
-						<label for="port"><?php _e('Host', WP_FFPC_PARAM); ?></label>
+						<label for="port"><?php _e('Port', WP_FFPC_PARAM); ?></label>
 					</dt>
 					<dd>
 						<input type="number" name="port" id="port" value="<?php echo $this->options['port']; ?>" />
