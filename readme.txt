@@ -67,6 +67,17 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 
 == Changelog ==
 
+= 0.4.2 =
+2012.11.30
+
+* added sync protocoll option: replace all http->https or https->http depending on request protocol
+* binary mode is working correctly with memcached extension
+* 
+
+KNOWN ISSUES
+
+There are major problems with the "memcache" driver, the source is yet unkown. The situation is that there's no response from the memcached server using this driver; please avoid using it!
+
 = 0.4.1 =
 2012.08.16
 

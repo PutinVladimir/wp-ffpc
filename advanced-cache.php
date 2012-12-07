@@ -244,26 +244,49 @@ function wp_ffpc_callback($buffer) {
 		if made with archieve, last listed post can make this go bad
 	*/
 	global $post;
-	if ( !empty($post) && ( $wp_ffpc_meta['type'] == 'single' || $wp_ffpc_meta['type'] == 'page' ) )
+	if ( !empty($post) && ( $wp_ffpc_meta['type'] == 'single' || $wp_ffpc_meta['type'] == 'page' ) && !empty ( $post->post_modified_gmt ) )
 	{
 		/* get last modification data */
-		if (!empty ( $post->post_modified_gmt ) )
-			$wp_ffpc_meta['lastmodified'] = strtotime ( $post->post_modified_gmt );
+		$wp_ffpc_meta['lastmodified'] = strtotime ( $post->post_modified_gmt );
 	}
 
 	/* APC compression */
 	$compress = ( ($wp_ffpc_config['cache_type'] == 'apc') && $wp_ffpc_config['apc_compress'] ) ? true : false;
 	$wp_ffpc_meta['compressed'] = $compress;
 
+	/* sync all http and https requests if enabled */
+	if ( !empty($wp_ffpc_config['sync_protocols']) )
+	{
+		$sync_from = 'https://' . $_SERVER['SERVER_NAME'];
+		$sync_to = 'http://' . $_SERVER['SERVER_NAME'];
+	
+		if ( !empty( $_SERVER['HTTPS'] ) )
+		{
+			$sync_from = 'http://' . $_SERVER['SERVER_NAME'];
+			$sync_to = 'https://' . $_SERVER['SERVER_NAME'];
+		}
+		$buffer = str_replace ( $sync_from, $sync_to, $buffer );
+	}
+	
 	/* set meta */
 	wp_ffpc_set ( $wp_ffpc_meta_key, $wp_ffpc_meta );
 
-	/* set data */
-	$data = $buffer;
-	wp_ffpc_set ( $wp_ffpc_data_key, $data , $compress );
+	/* set meta per entry for nginx */
+	/*
+	foreach ( $wp_ffpc_meta as $subkey => $subdata )
+	{
+		$subkey = str_replace ( $wp_ffpc_config['prefix_meta'], $wp_ffpc_config['prefix_meta'] . $subkey . "-", $wp_ffpc_meta_key );
+		wp_ffpc_set ( $subkey, $subdata );
+	}
+	*/
 
-	/* vital for nginx version */
+	/* set data */
+	//$data = $buffer;
+	wp_ffpc_set ( $wp_ffpc_data_key, $buffer, $compress );
+
+	/* vital for nginx, make no problem at other places */
 	header("HTTP/1.1 200 OK");
+		
 	/* echoes HTML out */
 	return $buffer;
 }

@@ -186,11 +186,38 @@ if (!class_exists('WPFFPC')) {
 			 * the admin panel itself
 			 */
 			?>
-			<?php if ( !WP_CACHE ) : ?>
-				<div class="updated settings-error"><p><strong>WARNING: WP_CACHE is disabled, plugin will not work that way. Please add define( 'WP_CACHE', true ); into the beginning of wp-config.php</strong></p></div>
-			<?php endif; ?>
 
 			<div class="wrap">
+
+			<?php if ( !WP_CACHE ) : ?>
+				<div class="updated settings-error"><p><strong><?php _e("WARNING: WP_CACHE is disabled, plugin will not work that way. Please add define( 'WP_CACHE', true ); into the beginning of wp-config.php", WP_FFPC_PARAM); ?></strong></p></div>
+			<?php endif; ?>
+
+			<?php if ( !class_exists('Memcache') && !class_exists('Memcached')  ) : ?>
+				<div class="updated settings-error"><p><strong><?php _e('No PHP memcached extension was found. To use memcached, you need PHP Memcache or PHP Memcached extension.', WP_FFPC_PARAM); ?></strong></p></div>
+			<?php endif; ?>
+
+			<?php
+				$memcached_settings = ini_get_all( 'memcache' );
+				$memcached_protocol = strtolower($memcached_settings['memcache.protocol']['local_value']);
+			?>
+
+			<?php if ( $this->options['cache_type'] == 'memcached' && $memcached_protocol == 'binary' ) : ?>
+				<div class="updated settings-error"><p><strong><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work. Please consider to change either to ascii mode or to Mecached extension.', WP_FFPC_PARAM); ?></strong></p></div>
+			<?php endif; ?>
+
+			<?php if ( $this->options['cache_type'] == 'memcached' || $this->options['cache_type'] == 'memcache' ) : ?>
+				<div class="updated settings-error"><p><strong>
+					<?php
+						_e( 'Backend status on host ' . $this->options['host'] . ', port ' . $this->options['port'] .' with driver "' . $this->options['cache_type'] . '": ', WP_FFPC_PARAM );
+						$server_status = wp_ffpc_init( $this->options);
+
+						$server_status = ( empty($server_status) || $server_status == 0 ) ? '<span class="error-msg">down</span>' : '<span class="ok-msg">up & running</span>' ;
+						echo $server_status;
+					?>
+				</strong></p></div>
+			<?php endif; ?>
+
 			<h2><?php _e( 'WP-FFPC settings', WP_FFPC_PARAM ) ; ?></h2>
 			<form method="post" action="#">
 
@@ -200,13 +227,13 @@ if (!class_exists('WPFFPC')) {
 					<div class="grid50">
 
 					<dt>
-						<label for="cache_type"><?php _e('Cache invalidation method', WP_FFPC_PARAM); ?></label>
+						<label for="cache_type"><?php _e('Select backend', WP_FFPC_PARAM); ?></label>
 					</dt>
 					<dd>
 						<select name="cache_type" id="cache_type">
 							<?php $this->cache_type ( $this->options['cache_type'] ) ?>
 						</select>
-						<span class="description"><?php _e('Select cache invalidation method.', WP_FFPC_PARAM); ?></span>
+						<span class="description"><?php _e('Select cache driver: ', WP_FFPC_PARAM); ?></span>
 						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php $this->cache_type( $this->defaults['cache_type'] , true ) ; ?></span>
 					</dd>
 
@@ -284,6 +311,15 @@ if (!class_exists('WPFFPC')) {
 						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php $this->print_bool( $this->defaults['pingback_status']); ?></span>
 					</dd>
 
+					<dt>
+						<label for="sync_protocols"><?php _e("Enable sync protocolls", WP_FFPC_PARAM); ?></label>
+					</dt>
+					<dd>
+						<input type="checkbox" name="sync_protocols" id="sync_protocols" value="1" <?php checked($this->options['sync_protocols'],true); ?> />
+						<span class="description"><?php _e('Enable to replace every protocol to the same as in the request for site\'s domain', WP_FFPC_PARAM); ?></span>
+						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php $this->print_bool( $this->defaults['sync_protocols']); ?></span>
+					</dd>
+
 					</div>
 
 					<div class="grid50">
@@ -347,24 +383,6 @@ if (!class_exists('WPFFPC')) {
 				<fieldset class="grid50">
 				<legend><?php _e('Settings for memcached backend', WP_FFPC_PARAM); ?></legend>
 
-				<?php if ( !class_exists('Memcache') && !class_exists('Memcached')  ) : ?>
-					<h1 class="error">No PHP memcached extension was found. To use memcached, you need PHP Memcache or PHP Memcached extension.</h1>
-				<?php endif; ?>
-
-				<?php if ( $this->options['cache_type'] == 'memcached' || $this->options['cache_type'] == 'memcache' ) : ?>
-				<div>
-					<strong>
-					<?php
-						_e( 'Backend status: ', WP_FFPC_PARAM );
-						$server_status = wp_ffpc_init( $this->options);
-
-						$server_status = ( empty($server_status) || $server_status == 0 ) ? '<span class="error-msg">down</span>' : '<span class="ok-msg">up & running</span>' ;
-						echo $server_status;
-					?>
-					</strong>
-				</div>
-				<?php endif; ?>
-
 				<dl>
 
 					<dt>
@@ -388,22 +406,6 @@ if (!class_exists('WPFFPC')) {
 				</dl>
 				</fieldset>
 
-				<?php if ( $this->options['cache_type'] == 'memcache' || $this->options['cache_type'] == 'memcached'  ) : ?>
-
-				<fieldset class="grid50">
-				<legend><?php _e('Sample config for nginx to utilize the data entries', WP_FFPC_PARAM); ?></legend>
-				<?php
-					$search = array( 'DATAPREFIX', 'MEMCACHEDHOST', 'MEMCACHEDPORT');
-					$replace = array ( $this->options['prefix_data'], $this->options['host'], $this->options['port'] );
-					$nginx = file_get_contents ( WP_FFPC_DIR .'/nginx-sample.conf' );
-					$nginx = str_replace ( $search , $replace , $nginx );
-
-				?>
-				<pre><?php echo $nginx; ?></pre>
-				</fieldset>
-
-				<?php endif; ?>
-
 				<fieldset class="grid50">
 				<legend><?php _e('Settings for APC', WP_FFPC_PARAM); ?></legend>
 				<dl>
@@ -419,6 +421,23 @@ if (!class_exists('WPFFPC')) {
 
 				</dl>
 				</fieldset>
+
+
+				<?php if ( $this->options['cache_type'] == 'memcache' || $this->options['cache_type'] == 'memcached'  ) : ?>
+
+				<fieldset>
+				<legend><?php _e('Sample config for nginx to utilize the data entries', WP_FFPC_PARAM); ?></legend>
+				<?php
+					$search = array( 'DATAPREFIX', 'MEMCACHEDHOST', 'MEMCACHEDPORT');
+					$replace = array ( $this->options['prefix_data'], $this->options['host'], $this->options['port'] );
+					$nginx = file_get_contents ( WP_FFPC_DIR .'/nginx-sample.conf' );
+					$nginx = str_replace ( $search , $replace , $nginx );
+
+				?>
+				<pre><?php echo $nginx; ?></pre>
+				</fieldset>
+
+				<?php endif; ?>
 
 				<p class="clearcolumns"><input class="button-primary" type="submit" name="<?php echo WP_FFPC_PARAM; ?>-save" id="<?php echo WP_FFPC_PARAM; ?>-save" value="Save Changes" /></p>
 			</form>
@@ -539,7 +558,7 @@ if (!class_exists('WPFFPC')) {
 				'pingback_status'=> false,
 				'debug' => true,
 				'syslog' => false,
-				'cache_type' => 'memcache',
+				'cache_type' => 'memcached',
 				'cache_loggedin' => false,
 				'nocache_home' => false,
 				'nocache_feed' => false,
@@ -547,6 +566,7 @@ if (!class_exists('WPFFPC')) {
 				'nocache_single' => false,
 				'nocache_page' => false,
 				'apc_compress' => false,
+				'sync_protocols' => false,
 			);
 
 			$this->defaults = $defaults;

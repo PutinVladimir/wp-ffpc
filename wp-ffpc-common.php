@@ -60,7 +60,7 @@ function wp_ffpc_init( $wp_ffpc_config ) {
 				$wp_ffpc_backend = new Memcache();
 				$wp_ffpc_backend->addServer( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
 			}
-			$wp_ffpc_backend_status = $wp_ffpc_backend->getServerStatus( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
+			$wp_ffpc_backend_status = $wp_ffpc_backend->getStats( );
 			break;
 
 		/* in case of Memcached */
@@ -170,10 +170,10 @@ function wp_ffpc_set ( &$key, &$data, $compress = false ) {
 	{
 		if ( @is_array( $data ) )
 			$string = serialize($data);
-		elseif ( @is_string( $data ))
+		else //if ( @is_string( $data ) || @ )
 			$string = $data;
 
-		$size = strlen($string);
+		$size = @strlen($string);
 		wp_ffpc_log ( ' set key: "'. $key . '", size: '. $size . ' byte(s)' );
 	}
 
