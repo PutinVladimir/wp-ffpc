@@ -3,15 +3,16 @@ Contributors: cadeyrn
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=8LZ66LGFLMKJW&lc=HU&item_name=Peter%20Molnar%20photographer%2fdeveloper&item_number=petermolnar%2dpaypal%2ddonation&currency_code=USD&bn=PP%2dDonationsBF%3acredit%2epng%3aNonHosted
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
-Tested up to: 3.4.1
-Stable tag: 0.4.1
+Tested up to: 3.5.1
+Stable tag: 0.4.3
 
 Fast Full Page Cache, backend can be memcached or APC
 
 == Description ==
-WP-FFPC is a full page cache plugin for WordPress. It can use APC or a memcached server as backend. The naming stands for Fast Full Page Cache.
+WP-FFPC is a full page cache plugin for WordPress. It can use APC or a memcached server as backend. 
+The naming stands for Fast Full Page Cache.
 
-PHP has two extension for communication with a memcached server, named Memcache and Memcached. The plugin can utilize both.
+PHP has two extension for communication with a memcached server, named Memcache and Memcached. The plugin can utilize both, however, the recommended is memcached.
 
 = Features: =
 * exclude possibility of home, feeds, archieves, pages, singles
@@ -33,7 +34,7 @@ PHP has two extension for communication with a memcached server, named Memcache 
 (3) nginx compatility means that if used with PHP Memcache or PHP Memcached extension, the created memcached entries can be read and served directly from nginx, making the cache insanely fast.
 If used with APC, this feature is not available (no APC module for nginx), although, naturally, the cache modul is functional and working, but it will be done by PHP instead of nginx.
 Short nginx example configuration is generated on the plugin settings page if Memcache or Memcached is selected as cache type.
-NOTE: some features ( like pingback link in HTTP header ) will not be available with this solution! ( yet )
+NOTE: some features ( most of additional HTTP headers for example ) will not be available with this solution! ( yet )
 
 Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") plugin by Satollo (info@satollo.net).
 
@@ -45,34 +46,26 @@ Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper
 
 == Frequently Asked Questions ==
 
-= Known bugs =
-
-1. '%3C' character on home page load
-**Description**: When the page address is entered by hand, it gets redirected to `page.address/%3C`.
-**Solution**: only occurs with memcached, the reason is yet unknown. The bug has emerged once for me as well, setting up everything and restarting the memcached server solved it.
-
-2. random-like characters instead of page
-***SOLVED, description below is outdated***
-**Description**: when nginx is used with memcached, characters like `xœí}ksÛ8²èg»`  shows up instead of the page.
-**Solution**: this is the zlib compression of the page text. If PHP uses Memcached (with the 'd' at the ending), the compression cannot be turned off (it should, but it does not) and nginx is unable to read out the entries.
-Please use only the Memcache extension. You also need to select it on the settings site, this is because some hosts may provide both PHP extensions.
-
-
 = How to install memcache PHP extension? =
-You need to have PECL on your machine. If it's ready, type `pecl install memcache` as root.
-Some additional libraries can also be needed, but that varies by linux distributions.
+On most of the distributions, php5-memcached or php5-mecache is available as package.
+You can use PECL alternatively: `pecl install memcached`.
 
 = How to use the plugin on Amazon Linux? =
 You have to remove the default yum package, named `php-pecl-memcache` and install `Memcache` with PECL.
 
 == Changelog ==
 
-= 0.4.2 =
-2012.11.30
+= 0.4.3 =
+2013.03.03
 
-* added sync protocoll option: replace all http->https or https->http depending on request protocol
+* long-running %3C bug fixed by the help of Mark Costlow <cheeks@swcp.com>, many thanks for it. It was cause by a bad check in the default values set-up: is_numeric applies for string numbers as well, which was unknown to me, and cause some of the values to be 0 where they should have been something different.
+
+= 0.4.2 =
+2012.12.07
+
+* added optional sync protocoll option: replace all http->https or https->http depending on request protocol
 * binary mode is working correctly with memcached extension
-* 
+* added warning message for memcache extension in binary mode
 
 KNOWN ISSUES
 

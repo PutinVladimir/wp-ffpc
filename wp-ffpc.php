@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.4.1
+Version: 0.4.2
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: Fast Full Page Cache, backend can be memcached or APC
 Author: Peter Molnar
@@ -648,7 +648,7 @@ if (!class_exists('WPFFPC')) {
 					if (strlen($update)!=0 && !is_numeric($update))
 						$update = stripslashes($update);
 				}
-				elseif ( ( empty($_POST[$name]) && is_bool ($this->defaults[$name]) ) || is_numeric( $update ) )
+				elseif ( ( empty($_POST[$name]) && is_bool ($this->defaults[$name]) ) || is_int( $update ) )
 				{
 					$update = 0;
 				}
