@@ -83,11 +83,14 @@ if (!class_exists('WPFFPC')) {
 		/* status, 0 = nothing happened*/
 		var $status = 0;
 
+		var $network = false;
+
 		/**
 		* constructor
 		*
 		*/
 		function __construct() {
+			$this->check_for_network();
 
 			/* register options */
 			$this->get_options();
@@ -115,6 +118,10 @@ if (!class_exists('WPFFPC')) {
 			if( is_admin() )
 			{
 				wp_enqueue_style( WP_FFPC_PARAM . '.admin.css' , WP_FFPC_URL . '/css/'. WP_FFPC_PARAM .'.admin.css', false, '0.1');
+				//wp_enqueue_script("jquery-ui-g","https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.8/jquery-ui.min.js");
+				//wp_enqueue_script ( "jquery");
+				//wp_enqueue_script ( "jquery-ui-core");
+				wp_enqueue_script ( "jquery-ui-tabs" );
 			}
 
 			/* on activation */
@@ -126,9 +133,10 @@ if (!class_exists('WPFFPC')) {
 			/* on uninstall */
 			register_uninstall_hook(__FILE__ , array( $this , 'uninstall') );
 
+
 			/* init plugin in the admin section */
 			/* if multisite, admin page will be on network admin section */
-			if ( MULTISITE )
+			if ( $this->network )
 				add_action('network_admin_menu', array( $this , 'admin_init') );
 			/* not network, will be in simple admin menu */
 			else
@@ -159,7 +167,8 @@ if (!class_exists('WPFFPC')) {
 				header("Location: admin.php?page=" . WP_FFPC_OPTIONS_PAGE . "&saved=true");
 			}
 
-			add_menu_page('Edit WP-FFPC options', __('WP-FFPC', WP_FFPC_PARAM ), 10, WP_FFPC_OPTIONS_PAGE , array ( $this , 'admin_panel' ) );
+			add_submenu_page('settings.php', 'Edit WP-FFPC options', __('WP-FFPC', WP_FFPC_PARAM ), 10, WP_FFPC_OPTIONS_PAGE , array ( $this , 'admin_panel' ) );
+			//add_menu_page('Edit WP-FFPC options', __('WP-FFPC', WP_FFPC_PARAM ), 10, WP_FFPC_OPTIONS_PAGE , array ( $this , 'admin_panel' ) );
 		}
 
 		/**
@@ -186,6 +195,12 @@ if (!class_exists('WPFFPC')) {
 			 * the admin panel itself
 			 */
 			?>
+
+			<script>
+				jQuery(document).ready(function($) {
+					jQuery( "#wp-ffpc-settings" ).tabs();
+				});
+			</script>
 
 			<div class="wrap">
 
@@ -219,13 +234,20 @@ if (!class_exists('WPFFPC')) {
 			<?php endif; ?>
 
 			<h2><?php _e( 'WP-FFPC settings', WP_FFPC_PARAM ) ; ?></h2>
-			<form method="post" action="#">
+			<form method="post" action="#" id="wp-ffpc-settings">
 
-				<fieldset>
-				<legend><?php _e( 'Global settings', WP_FFPC_PARAM ); ?></legend>
+				<ul>
+					<li><a href="#wp-ffpc-type"><?php _e( 'Cache type', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-debug"><?php _e( 'Debug & in-depth', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-exceptions"><?php _e( 'Cache exceptions', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-apc"><?php _e( 'APC', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-memcached"><?php _e( 'Memcache(d)', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-nginx"><?php _e( 'nginx', WP_FFPC_PARAM ); ?></a></li>
+				</ul>
+
+				<fieldset id="wp-ffpc-type">
+				<legend><?php _e( 'Set cache type', WP_FFPC_PARAM ); ?></legend>
 				<dl>
-					<div class="grid50">
-
 					<dt>
 						<label for="cache_type"><?php _e('Select backend', WP_FFPC_PARAM); ?></label>
 					</dt>
@@ -283,7 +305,12 @@ if (!class_exists('WPFFPC')) {
 						<span class="description"><?php _e('Prefix for meta content keys, used only with PHP processing.', WP_FFPC_PARAM); ?></span>
 						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php echo $this->defaults['prefix_meta']; ?></span>
 					</dd>
+				</dl>
+				</fieldset>
 
+				<fieldset id="wp-ffpc-debug">
+				<legend><?php _e( 'Debug & in-depth settings', WP_FFPC_PARAM ); ?></legend>
+				<dl>
 					<dt>
 						<label for="debug"><?php _e("Enable debug mode", WP_FFPC_PARAM); ?></label>
 					</dt>
@@ -319,10 +346,12 @@ if (!class_exists('WPFFPC')) {
 						<span class="description"><?php _e('Enable to replace every protocol to the same as in the request for site\'s domain', WP_FFPC_PARAM); ?></span>
 						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php $this->print_bool( $this->defaults['sync_protocols']); ?></span>
 					</dd>
+				</dl>
+				</fieldset>
 
-					</div>
-
-					<div class="grid50">
+				<fieldset id="wp-ffpc-exceptions">
+				<legend><?php _e( 'Set cache excepions', WP_FFPC_PARAM ); ?></legend>
+				<dl>
 					<dt>
 						<label for="cache_loggedin"><?php _e('Enable cache for logged in users', WP_FFPC_PARAM); ?></label>
 					</dt>
@@ -376,15 +405,28 @@ if (!class_exists('WPFFPC')) {
 						<span class="description"><?php _e('Exclude pages from caching.', WP_FFPC_PARAM); ?></span>
 						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php $this->print_bool( $this->defaults['nocache_page']); ?></span>
 					</dd>
-					</div>
 				</dl>
 				</fieldset>
 
-				<fieldset class="grid50">
-				<legend><?php _e('Settings for memcached backend', WP_FFPC_PARAM); ?></legend>
-
+				<fieldset id="wp-ffpc-apc">
+				<legend><?php _e('Settings for APC', WP_FFPC_PARAM); ?></legend>
 				<dl>
 
+					<dt>
+						<label for="apc_compress"><?php _e("Compress entries", WP_FFPC_PARAM); ?></label>
+					</dt>
+					<dd>
+						<input type="checkbox" name="apc_compress" id="apc_compress" value="1" <?php checked($this->options['apc_compress'],true); ?> />
+						<span class="description"><?php _e('Try to compress APC entries. Requires PHP ZLIB.', WP_FFPC_PARAM); ?></span>
+						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php $this->print_bool( $this->defaults['apc_compress']); ?></span>
+					</dd>
+
+				</dl>
+				</fieldset>
+
+				<fieldset id="wp-ffpc-memcached">
+				<legend><?php _e('Settings for memcached backend', WP_FFPC_PARAM); ?></legend>
+				<dl>
 					<dt>
 						<label for="host"><?php _e('Host', WP_FFPC_PARAM); ?></label>
 					</dt>
@@ -402,30 +444,10 @@ if (!class_exists('WPFFPC')) {
 						<span class="description"><?php _e('Port for memcached server', WP_FFPC_PARAM); ?></span>
 						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php echo $this->defaults['port']; ?></span>
 					</dd>
-
 				</dl>
 				</fieldset>
 
-				<fieldset class="grid50">
-				<legend><?php _e('Settings for APC', WP_FFPC_PARAM); ?></legend>
-				<dl>
-
-					<dt>
-						<label for="apc_compress"><?php _e("Compress entries", WP_FFPC_PARAM); ?></label>
-					</dt>
-					<dd>
-						<input type="checkbox" name="apc_compress" id="apc_compress" value="1" <?php checked($this->options['apc_compress'],true); ?> />
-						<span class="description"><?php _e('Try to compress APC entries. Requires PHP ZLIB.', WP_FFPC_PARAM); ?></span>
-						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php $this->print_bool( $this->defaults['apc_compress']); ?></span>
-					</dd>
-
-				</dl>
-				</fieldset>
-
-
-				<?php if ( $this->options['cache_type'] == 'memcache' || $this->options['cache_type'] == 'memcached'  ) : ?>
-
-				<fieldset>
+				<fieldset id="wp-ffpc-nginx">
 				<legend><?php _e('Sample config for nginx to utilize the data entries', WP_FFPC_PARAM); ?></legend>
 				<?php
 					$search = array( 'DATAPREFIX', 'MEMCACHEDHOST', 'MEMCACHEDPORT');
@@ -436,8 +458,6 @@ if (!class_exists('WPFFPC')) {
 				?>
 				<pre><?php echo $nginx; ?></pre>
 				</fieldset>
-
-				<?php endif; ?>
 
 				<p class="clearcolumns"><input class="button-primary" type="submit" name="<?php echo WP_FFPC_PARAM; ?>-save" id="<?php echo WP_FFPC_PARAM; ?>-save" value="Save Changes" /></p>
 			</form>
@@ -469,6 +489,19 @@ if (!class_exists('WPFFPC')) {
 
 			$this->print_select_options ( $e , $current , $returntext );
 
+		}
+
+		/**
+		 * see if we are using network-wide setup or not
+		 *
+		 */
+		function check_for_network( ) {
+			if ( is_multisite() ) {
+				$plugins = get_site_option( 'active_sitewide_plugins');
+				if ( isset($plugins['wp-ffpc/wp-ffpc.php']) ) {
+					$this->network = true;
+				}
+			}
 		}
 
 		/**
@@ -648,7 +681,7 @@ if (!class_exists('WPFFPC')) {
 					if (strlen($update)!=0 && !is_numeric($update))
 						$update = stripslashes($update);
 				}
-				elseif ( ( empty($_POST[$name]) && is_bool ($this->defaults[$name]) ) || is_int( $update ) )
+				elseif ( ( empty($_POST[$name]) && is_bool ($this->defaults[$name]) ) || is_int( $this->defaults[$name] ) )
 				{
 					$update = 0;
 				}

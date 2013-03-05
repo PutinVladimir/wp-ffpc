@@ -9,7 +9,7 @@ Stable tag: 0.4.3
 Fast Full Page Cache, backend can be memcached or APC
 
 == Description ==
-WP-FFPC is a full page cache plugin for WordPress. It can use APC or a memcached server as backend. 
+WP-FFPC is a full page cache plugin for WordPress. It can use APC or a memcached server as backend.
 The naming stands for Fast Full Page Cache.
 
 PHP has two extension for communication with a memcached server, named Memcache and Memcached. The plugin can utilize both, however, the recommended is memcached.
@@ -42,7 +42,8 @@ Some parts were based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper
 1. Upload contents of `wp-ffpc.zip` to the `/wp-content/plugins/` directory
 2. Enable WordPress cache by adding `define('WP_CACHE',true);` in wp-config.php
 3. Activate the plugin through the `Plugins` menu in WordPress (please use network wide activation if used in a WordPress Network)
-4. Fine tune the settings in `Settings` -> `wp-ffpc` menu in WordPress. For WordPress Network, please visit the Network Admin panel, the options will be available at WP-FFPC menu entry.
+4. Fine tune the settings in `Settings` -> `wp-ffpc` menu in WordPress.
+For WordPress Network, please visit the Network Admin panel, the options will be available under Network Admin Settings page, in WP-FFPC menu entry.
 
 == Frequently Asked Questions ==
 
@@ -54,6 +55,13 @@ You can use PECL alternatively: `pecl install memcached`.
 You have to remove the default yum package, named `php-pecl-memcache` and install `Memcache` with PECL.
 
 == Changelog ==
+
+= 0.5 =
+2013.03.04
+
+* long-running %3C really fixed ( version 0.4.3 was dead end ) by the help of Mark Costlow <cheeks@swcp.com>
+* UI cleanup + tabs
+* WP-FFPC options moved from global under Settings ( of either network or site )
 
 = 0.4.3 =
 2013.03.03
@@ -75,9 +83,6 @@ There are major problems with the "memcache" driver, the source is yet unkown. T
 2012.08.16
 
 * storage key extended with scheme ( http; https; etc. ), the miss caused problems when https request server CSS and JS files via http.
-
-KNOWN ISSUES
-
 
 = 0.4 =
 2012.08.06

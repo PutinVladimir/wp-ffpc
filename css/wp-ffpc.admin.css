@@ -17,7 +17,7 @@ legend {
 	padding:0;
 	margin:0;
 	font-size:130%;
-	padding-top:3em;
+	padding-top:0em;
 }
 
 .default {
@@ -50,4 +50,26 @@ legend {
 
 .ok-msg {
 	color: #009900;
+}
+
+.ui-tabs-nav {
+	list-style-type: none;
+}
+
+.ui-tabs-nav a {
+	outline: 0;
+	text-decoration: none;
+	font-size: 120%;
+}
+
+
+.ui-state-default {
+	display: inline-block;
+	width: auto;
+	padding: 0.5em 2em 0.5em 2em;
+}
+
+.ui-tabs-selected,
+.ui-state-active {
+	background-color: #ccc;
 }

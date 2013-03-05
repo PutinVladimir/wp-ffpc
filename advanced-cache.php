@@ -257,17 +257,20 @@ function wp_ffpc_callback($buffer) {
 	/* sync all http and https requests if enabled */
 	if ( !empty($wp_ffpc_config['sync_protocols']) )
 	{
-		$sync_from = 'https://' . $_SERVER['SERVER_NAME'];
-		$sync_to = 'http://' . $_SERVER['SERVER_NAME'];
-	
 		if ( !empty( $_SERVER['HTTPS'] ) )
 		{
 			$sync_from = 'http://' . $_SERVER['SERVER_NAME'];
 			$sync_to = 'https://' . $_SERVER['SERVER_NAME'];
 		}
+		else
+		{
+			$sync_from = 'https://' . $_SERVER['SERVER_NAME'];
+			$sync_to = 'http://' . $_SERVER['SERVER_NAME'];
+		}
+
 		$buffer = str_replace ( $sync_from, $sync_to, $buffer );
 	}
-	
+
 	/* set meta */
 	wp_ffpc_set ( $wp_ffpc_meta_key, $wp_ffpc_meta );
 
@@ -286,7 +289,7 @@ function wp_ffpc_callback($buffer) {
 
 	/* vital for nginx, make no problem at other places */
 	header("HTTP/1.1 200 OK");
-		
+
 	/* echoes HTML out */
 	return $buffer;
 }
