@@ -1,47 +1,68 @@
-dt {
+.wp-ffpc-panel dt {
 	margin-top: 2em;
 	font-weight:bold;
 }
 
-dd {
-
-}
-fieldset {
+.wp-ffpc-panel fieldset {
 	display:block;
-	margin:0 1% 0 1%;
-	clear:none;
+	margin: 0;
+	padding: 0 1em 0 1em;
+	border: 1px solid #ccc;
 }
 
-legend {
-	font-weight:bold;
-	padding:0;
-	margin:0;
-	font-size:130%;
-	padding-top:0em;
+.wp-ffpc-panel legend {
+	display: none;
+	visibility: hidden;
 }
 
-.default {
+.wp-ffpc-panel .default {
 	display:block;
 	padding-left: 1em;
 	font-size:90%;
 	color:#666;
 }
 
-.description {
+.wp-ffpc-panel .description {
 	display:block;
 }
 
-.grid50 {
-	float:left;
-	display:block;
-	text-align:left;
-	margin:0 1% 0 1%;
-	width:48%;
-	overflow:auto;
+.wp-ffpc-panel .tabs {
+	padding:0;
+	margin: 0;
+	list-style-type: none;
 }
 
-.clearcolumns {
-	clear:both;
+.wp-ffpc-panel .tabs li  {
+	border-style: solid;
+	border-width: 1px 1px 1px 1px;
+	border-color: #ccc;
+	border-bottom-color: #ccc;
+	line-height: 120%;
+	display: inline-block;
+	padding: 0.5em 2em 0.5em 2em;
+	text-decoration: none;
+	margin-bottom: -1px;
+	-webkit-border-top-left-radius: 3px;
+	-webkit-border-top-right-radius: 3px;
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
+	background: #f1f1f1;
+	background-image: -webkit-gradient(linear,left bottom,left top,from(#ececec),to(#f9f9f9));
+	background-image: -webkit-linear-gradient(bottom,#ececec,#f9f9f9);
+	background-image: -moz-linear-gradient(bottom,#ececec,#f9f9f9);
+	background-image: -o-linear-gradient(bottom,#ececec,#f9f9f9);
+	background-image: linear-gradient(to top,#ececec,#f9f9f9);
+}
+
+.wp-ffpc-panel .tabs li a {
+	outline: none;
+	text-decoration: none;
+	font-size: 120%;
+}
+
+.wp-ffpc-panel .tabs li.ui-state-active {
+	background: #fff;
+	border-bottom-color: #fff;
 }
 
 .error-msg {
@@ -50,26 +71,4 @@ legend {
 
 .ok-msg {
 	color: #009900;
-}
-
-.ui-tabs-nav {
-	list-style-type: none;
-}
-
-.ui-tabs-nav a {
-	outline: 0;
-	text-decoration: none;
-	font-size: 120%;
-}
-
-
-.ui-state-default {
-	display: inline-block;
-	width: auto;
-	padding: 0.5em 2em 0.5em 2em;
-}
-
-.ui-tabs-selected,
-.ui-state-active {
-	background-color: #ccc;
 }

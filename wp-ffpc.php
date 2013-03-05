@@ -117,11 +117,8 @@ if (!class_exists('WPFFPC')) {
 			/* add admin styling */
 			if( is_admin() )
 			{
-				wp_enqueue_style( WP_FFPC_PARAM . '.admin.css' , WP_FFPC_URL . '/css/'. WP_FFPC_PARAM .'.admin.css', false, '0.1');
-				//wp_enqueue_script("jquery-ui-g","https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.8/jquery-ui.min.js");
-				//wp_enqueue_script ( "jquery");
-				//wp_enqueue_script ( "jquery-ui-core");
 				wp_enqueue_script ( "jquery-ui-tabs" );
+				wp_enqueue_style( WP_FFPC_PARAM . '.admin.css' , WP_FFPC_URL . '/css/'. WP_FFPC_PARAM .'.admin.css', false, '0.1');
 			}
 
 			/* on activation */
@@ -234,15 +231,15 @@ if (!class_exists('WPFFPC')) {
 			<?php endif; ?>
 
 			<h2><?php _e( 'WP-FFPC settings', WP_FFPC_PARAM ) ; ?></h2>
-			<form method="post" action="#" id="wp-ffpc-settings">
+			<form method="post" action="#" id="wp-ffpc-settings" class="wp-ffpc-panel">
 
-				<ul>
-					<li><a href="#wp-ffpc-type"><?php _e( 'Cache type', WP_FFPC_PARAM ); ?></a></li>
-					<li><a href="#wp-ffpc-debug"><?php _e( 'Debug & in-depth', WP_FFPC_PARAM ); ?></a></li>
-					<li><a href="#wp-ffpc-exceptions"><?php _e( 'Cache exceptions', WP_FFPC_PARAM ); ?></a></li>
-					<li><a href="#wp-ffpc-apc"><?php _e( 'APC', WP_FFPC_PARAM ); ?></a></li>
-					<li><a href="#wp-ffpc-memcached"><?php _e( 'Memcache(d)', WP_FFPC_PARAM ); ?></a></li>
-					<li><a href="#wp-ffpc-nginx"><?php _e( 'nginx', WP_FFPC_PARAM ); ?></a></li>
+				<ul class="tabs">
+					<li><a href="#wp-ffpc-type" class="wp-switch-editor"><?php _e( 'Cache type', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-debug" class="wp-switch-editor"><?php _e( 'Debug & in-depth', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-exceptions" class="wp-switch-editor"><?php _e( 'Cache exceptions', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-apc" class="wp-switch-editor"><?php _e( 'APC', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-memcached" class="wp-switch-editor"><?php _e( 'Memcache(d)', WP_FFPC_PARAM ); ?></a></li>
+					<li><a href="#wp-ffpc-nginx" class="wp-switch-editor"><?php _e( 'nginx', WP_FFPC_PARAM ); ?></a></li>
 				</ul>
 
 				<fieldset id="wp-ffpc-type">
