@@ -465,6 +465,12 @@ if (!class_exists('WPFFPC')) {
 					$nginx = file_get_contents ( WP_FFPC_DIR .'/nginx-sample.conf' );
 					$nginx = str_replace ( $search , $replace , $nginx );
 
+					foreach ( array_keys( $this->options['servers'] ) as $server ) {
+						$nginx_servers .= "		server ". $server .";\n";
+					}
+
+					$nginx = str_replace ( 'MEMCACHED_SERVERS' , $nginx_servers , $nginx );
+
 				?>
 				<pre><?php echo $nginx; ?></pre>
 				</fieldset>
