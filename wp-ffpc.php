@@ -120,7 +120,7 @@ if (!class_exists('WPFFPC')) {
 			if( is_admin() )
 			{
 				wp_enqueue_script ( "jquery-ui-tabs" );
-				wp_enqueue_style( WP_FFPC_PARAM . '.admin.css' , WP_FFPC_URL . '/css/'. WP_FFPC_PARAM .'.admin.css', false, '0.1');
+				wp_enqueue_style( WP_FFPC_PARAM . '.admin.css' , WP_FFPC_URL . '/' . WP_FFPC_PARAM .'.admin.css', false, '0.1');
 			}
 
 			/* on activation */
@@ -698,7 +698,7 @@ if (!class_exists('WPFFPC')) {
 					if ( strlen( $update ) !=0 && !is_numeric($update) )
 						$update = stripslashes($update);
 				}
-				elseif ( ( empty( $_POST[$name] ) && is_bool ( $default ) ) || is_int( $default ) )
+				elseif ( empty( $_POST[$name] ) && ( is_bool ( $default ) || is_int( $default ) ) )
 				{
 					$update = 0;
 				}
@@ -750,6 +750,7 @@ if (!class_exists('WPFFPC')) {
 		 */
 		function uninstall ( ) {
 			delete_site_option( WP_FFPC_PARAM );
+			wp_ffpc_log ( "plugin uninstalled ");
 		}
 
 	}
