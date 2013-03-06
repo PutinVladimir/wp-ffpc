@@ -67,6 +67,7 @@ define ( 'WP_FFPC_SERVER_LIST_SEPARATOR' , ',' );
 define ( 'WP_FFPC_SERVER_SEPARATOR', ':' );
 define ( 'WP_FFPC_DONATION_LINK', 'https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC' );
 
+/* get the common functions */
 include_once (WP_FFPC_DIR .'/wp-ffpc-common.php');
 
 if (!class_exists('WPFFPC')) {
@@ -135,7 +136,6 @@ if (!class_exists('WPFFPC')) {
 
 			/* on uninstall */
 			register_uninstall_hook(__FILE__ , array( $this , 'uninstall') );
-
 
 			/* init plugin in the admin section */
 			/* if multisite, admin page will be on network admin section */
@@ -211,16 +211,19 @@ if (!class_exists('WPFFPC')) {
 			<h4>This plugin helped your business? <a href="<?php echo WP_FFPC_DONATION_LINK; ?>">Buy me a coffee for having it, please :)</a></h4>
 
 			<?php if ( !WP_CACHE ) : ?>
-				<div class="updated settings-error"><p><strong><?php _e("WARNING: WP_CACHE is disabled, plugin will not work that way. Please add define( 'WP_CACHE', true ); into the beginning of wp-config.php", WP_FFPC_PARAM); ?></strong></p></div>
+				<div class="error"><p><strong><?php _e("WARNING: WP_CACHE is disabled, plugin will not work that way. Please add define( 'WP_CACHE', true ); into the beginning of wp-config.php", WP_FFPC_PARAM); ?></strong></p></div>
 			<?php endif; ?>
 
 			<?php if ( ! file_exists ( WP_FFPC_ACACHE_MAIN_FILE ) ): ?>
-				<div class="updated settings-error"><p><strong><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", WP_FFPC_PARAM); ?></strong></p></div>
+				<div class="error"><p><strong><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", WP_FFPC_PARAM); ?></strong></p></div>
 			<?php endif; ?>
 
+			<?php if ( $this->options['cache_type'] == 'memcached' && !class_exists('Memcached') ) : ?>
+				<div class="error"><p><strong><?php _e('ERROR: Memcached cache backend activated but no PHP memcached extension was found.', WP_FFPC_PARAM); ?></strong></p></div>
+			<?php endif; ?>
 
-			<?php if ( !class_exists('Memcache') && !class_exists('Memcached')  ) : ?>
-				<div class="updated settings-error"><p><strong><?php _e('No PHP memcached extension was found. To use memcached, you need PHP Memcache or PHP Memcached extension.', WP_FFPC_PARAM); ?></strong></p></div>
+			<?php if ( $this->options['cache_type'] == 'memcache' && !class_exists('Memcache') ) : ?>
+				<div class="error"><p><strong><?php _e('ERROR: Memcache cache backend activated but no PHP memcache extension was found.', WP_FFPC_PARAM); ?></strong></p></div>
 			<?php endif; ?>
 
 			<?php
@@ -229,12 +232,12 @@ if (!class_exists('WPFFPC')) {
 				$memcached_protocol = strtolower($memcached_settings['memcache.protocol']['local_value']);
 			?>
 
-			<?php if ( $this->options['cache_type'] == 'memcached' && $memcached_protocol == 'binary' ) : ?>
-				<div class="updated settings-error"><p><strong><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work. Please consider to change either to ascii mode or to Mecached extension.', WP_FFPC_PARAM); ?></strong></p></div>
+			<?php if ( $this->options['cache_type'] == 'memcache' && $memcached_protocol == 'binary' ) : ?>
+				<div class="error"><p><strong><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work. Please consider to change either to ascii mode or to Mecached extension.', WP_FFPC_PARAM); ?></strong></p></div>
 			<?php endif; ?>
 
 			<?php if ( $this->options['cache_type'] == 'memcached' || $this->options['cache_type'] == 'memcache' ) : ?>
-				<div class="updated settings-error">
+				<div class="updated">
 					<p><strong>
 					<?php
 						_e ( 'Driver: ' , WP_FFPC_PARAM);

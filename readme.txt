@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
 Tested up to: 3.5.1
-Stable tag: 0.4.3
+Stable tag: 0.5
 
 Fast Full Page Cache, backend can be memcached or APC
 
@@ -60,7 +60,7 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 == Changelog ==
 
 = 0.5 =
-2013.03.04
+2013.03.06
 
 WARNING, MAJOR CHANGES!
 
@@ -72,7 +72,9 @@ WARNING, MAJOR CHANGES!
 * case-sensitive string checks replaced with case-insensitives, contribution of Mark Costlow <cheeks@swcp.com>
 * refactored settings saving mechanism
 * additional syslog informations
-* additional comments on the work logic
+* additional comments on the code
+* lots of minor fixes
+* donation link on the top
 
 = 0.4.3 =
 2013.03.03
