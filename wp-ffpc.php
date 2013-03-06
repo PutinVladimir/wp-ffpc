@@ -61,6 +61,8 @@ define ( 'WP_FFPC_ACACHE_MAIN_FILE' , ABSPATH . 'wp-content/advanced-cache.php' 
 define ( 'WP_FFPC_ACACHE_INC_FILE' , WP_FFPC_DIR. '/advanced-cache.php' );
 define ( 'WP_FFPC_ACACHE_COMMON_FILE' , WP_FFPC_DIR. '/wp-ffpc-common.php' );
 define ( 'WP_FFPC_CONFIG_VAR' , '$wp_ffpc_config' );
+define ( 'WP_FFPC_SERVER_LIST_SEPARATOR' , ',' );
+define ( 'WP_FFPC_SERVER_SEPARATOR', ':' );
 
 include_once (WP_FFPC_DIR .'/wp-ffpc-common.php');
 
@@ -201,6 +203,8 @@ if (!class_exists('WPFFPC')) {
 
 			<div class="wrap">
 
+			<h4>This plugin helped your business? <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC">Buy me a coffee for having it :)</a></h4>
+
 			<?php if ( !WP_CACHE ) : ?>
 				<div class="updated settings-error"><p><strong><?php _e("WARNING: WP_CACHE is disabled, plugin will not work that way. Please add define( 'WP_CACHE', true ); into the beginning of wp-config.php", WP_FFPC_PARAM); ?></strong></p></div>
 			<?php endif; ?>
@@ -219,15 +223,25 @@ if (!class_exists('WPFFPC')) {
 			<?php endif; ?>
 
 			<?php if ( $this->options['cache_type'] == 'memcached' || $this->options['cache_type'] == 'memcache' ) : ?>
-				<div class="updated settings-error"><p><strong>
+				<div class="updated settings-error">
+					<p><strong>
 					<?php
-						_e( 'Backend status on host ' . $this->options['host'] . ', port ' . $this->options['port'] .' with driver "' . $this->options['cache_type'] . '": ', WP_FFPC_PARAM );
-						$server_status = wp_ffpc_init( $this->options);
-
-						$server_status = ( empty($server_status) || $server_status == 0 ) ? '<span class="error-msg">down</span>' : '<span class="ok-msg">up & running</span>' ;
-						echo $server_status;
+						_e ( 'Driver: ' , WP_FFPC_PARAM);
+						echo $this->options['cache_type'];
 					?>
-				</strong></p></div>
+					</strong></p>
+					<p>
+					<?php
+						_e( '<strong>Backend status:</strong><br />', WP_FFPC_PARAM );
+						$init = wp_ffpc_init( $this->options);
+						foreach ( $this->options['servers'] as $server_string => $server ) {
+							echo $server['host'] . ":" . $server['port'] ." => ";
+							$server_status = ( empty($init) || $init[$server_string] == 0 ) ? '<span class="error-msg">down</span>' : '<span class="ok-msg">up & running</span>' ;
+							echo $server_status ."<br />\n";
+						}
+					?>
+					</p>
+				</div>
 			<?php endif; ?>
 
 			<h2><?php _e( 'WP-FFPC settings', WP_FFPC_PARAM ) ; ?></h2>
@@ -425,21 +439,20 @@ if (!class_exists('WPFFPC')) {
 				<legend><?php _e('Settings for memcached backend', WP_FFPC_PARAM); ?></legend>
 				<dl>
 					<dt>
-						<label for="host"><?php _e('Host', WP_FFPC_PARAM); ?></label>
+						<label for="host"><?php _e('Host:Port', WP_FFPC_PARAM); ?></label>
 					</dt>
 					<dd>
-						<input type="text" name="host" id="host" value="<?php echo $this->options['host']; ?>" />
-						<span class="description"><?php _e('Hostname for memcached server', WP_FFPC_PARAM); ?></span>
+						<input type="text" name="hosts" id="hosts" value="<?php echo $this->options['hosts']; ?>" />
+						<span class="description"><?php _e('List all valid Hostname:Port[,Hostname:Port] for memcached server(s)', WP_FFPC_PARAM); ?></span>
 						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php echo $this->defaults['host']; ?></span>
 					</dd>
-
 					<dt>
-						<label for="port"><?php _e('Port', WP_FFPC_PARAM); ?></label>
+						<label for="persistent"><?php _e('Persistent memcache connections', WP_FFPC_PARAM); ?></label>
 					</dt>
 					<dd>
-						<input type="number" name="port" id="port" value="<?php echo $this->options['port']; ?>" />
-						<span class="description"><?php _e('Port for memcached server', WP_FFPC_PARAM); ?></span>
-						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php echo $this->defaults['port']; ?></span>
+						<input type="checkbox" name="persistent" id="persistent" value="1" <?php checked($this->options['persistent'],true); ?> />
+						<span class="description"><?php _e('Make all memcache connections persistent. Be carefull with this setting, always test the outcome.', WP_FFPC_PARAM); ?></span>
+						<span class="default"><?php _e('Default ', WP_FFPC_PARAM); ?>: <?php echo $this->defaults['persistent']; ?></span>
 					</dd>
 				</dl>
 				</fieldset>
@@ -556,15 +569,9 @@ if (!class_exists('WPFFPC')) {
 			if ( @file_exists( $acache ))
 				return false;
 
-			$string = '<?php'. "\n" .
-'global '. WP_FFPC_CONFIG_VAR .' ;' . "\n";
+			$string = '<?php'. "\n" . 'global '. WP_FFPC_CONFIG_VAR .";\n";
 
-			foreach($this->options as $key => $val) {
-				if (is_string($val))
-					$val = "'" . $val . "'";
-
-				$string .= WP_FFPC_CONFIG_VAR . '[\'' . $key . '\']=' . $val . ";\n";
-			}
+			$string .= WP_FFPC_CONFIG_VAR .' = ' .var_export( $this->options , true ) . ';';
 
 			$string .= "\n\ninclude_once ('" . WP_FFPC_ACACHE_COMMON_FILE . "');\ninclude_once ('" . WP_FFPC_ACACHE_INC_FILE . "');\n";
 
@@ -572,14 +579,14 @@ if (!class_exists('WPFFPC')) {
 			return true;
 		}
 
+
 		/**
 		 * parameters array with default values;
 		 *
 		 */
 		function get_options ( ) {
 			$defaults = array (
-				'port'=>11211,
-				'host'=>'127.0.0.1',
+				'hosts'=>'127.0.0.1:11211',
 				'expire'=>300,
 				'invalidation_method'=>0,
 				'prefix_meta' =>'meta-',
@@ -597,11 +604,19 @@ if (!class_exists('WPFFPC')) {
 				'nocache_page' => false,
 				'apc_compress' => false,
 				'sync_protocols' => false,
+				'persistent' => false,
+				'servers' => array (
+					'host' => '127.0.0.1',
+					'port' => 11211
+				),
 			);
 
 			$this->defaults = $defaults;
 
 			$this->options = get_site_option( WP_FFPC_PARAM , $defaults, false );
+
+			$this->split_hosts();
+
 		}
 
 		/**
@@ -667,27 +682,30 @@ if (!class_exists('WPFFPC')) {
 		 */
 		function save_settings ( $firstrun = false ) {
 
-			/**
-			 * update params from $_POST
-			 */
-			foreach ($this->options as $name=>$optionvalue)
+			$defaults = $this->defaults;
+
+			foreach ( $defaults as $key => $default )
 			{
-				if (!empty($_POST[$name]))
+				if (!empty($_POST[$key]))
 				{
-					$update = $_POST[$name];
-					if (strlen($update)!=0 && !is_numeric($update))
+					$update = $_POST[$key];
+					if ( strlen( $update ) !=0 && !is_numeric($update) )
 						$update = stripslashes($update);
 				}
-				elseif ( ( empty($_POST[$name]) && is_bool ($this->defaults[$name]) ) || is_int( $this->defaults[$name] ) )
+				elseif ( ( empty( $_POST[$name] ) && is_bool ( $default ) ) || is_int( $default ) )
 				{
 					$update = 0;
 				}
 				else
 				{
-					$update = $this->defaults[$name];
+					$update = $this->options[$key];
 				}
-				$this->options[$name] = $update;
+
+				$options[$key] = $update;
 			}
+
+			$this->options = $options;
+			$this->split_hosts();
 
 			update_site_option( WP_FFPC_PARAM , $this->options );
 
@@ -696,6 +714,28 @@ if (!class_exists('WPFFPC')) {
 			if ( ! $firstrun )
 				$this->generate_config();
 
+		}
+
+		function split_hosts ( ) {
+
+			$servers = explode( WP_FFPC_SERVER_LIST_SEPARATOR , $this->options['hosts']);
+			$good_servers = array();
+
+			foreach ( $servers as $server_num => $server_string ) {
+				$separator = strpos( $server_string , WP_FFPC_SERVER_SEPARATOR );
+				$host = substr( $server_string, 0, $separator );
+				$port = substr( $server_string, $separator + 1 );
+
+				if ( !empty ( $host )  && !empty($port) && is_numeric($port) ) {
+					$good_servers[$server_string] = array (
+						'host' => $host,
+						'port' => $port
+					);
+				}
+			}
+
+			if ( !empty ( $good_servers ))
+				$this->options['servers'] = $good_servers;
 		}
 
 		/**

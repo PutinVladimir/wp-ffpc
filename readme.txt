@@ -1,6 +1,6 @@
 === WP-FFPC ===
 Contributors: cadeyrn
-Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=8LZ66LGFLMKJW&lc=HU&item_name=Peter%20Molnar%20photographer%2fdeveloper&item_number=petermolnar%2dpaypal%2ddonation&currency_code=USD&bn=PP%2dDonationsBF%3acredit%2epng%3aNonHosted
+Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
 Tested up to: 3.5.1
@@ -59,9 +59,16 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 = 0.5 =
 2013.03.04
 
+WARNING, MAJOR CHANGES!
+
 * long-running %3C really fixed ( version 0.4.3 was dead end ) by the help of Mark Costlow <cheeks@swcp.com>
-* UI cleanup + tabs
-* WP-FFPC options moved from global under Settings ( of either network or site )
+* UI cleanup, introducing tabbed interface
+* WP-FFPC options moved from global menu to under Settings in both Site and Network Admin interfaces
+* added 'persistent' checkbox for memcached connections
+* added possibility to add multiple memcached servers
+* case-sensitive string checks replaced with case-insensitives, contribution of Mark Costlow <cheeks@swcp.com>
+* refactored settings saving mechanism
+* additional syslog informations
 
 = 0.4.3 =
 2013.03.03

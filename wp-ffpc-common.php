@@ -58,9 +58,15 @@ function wp_ffpc_init( $wp_ffpc_config ) {
 			if ( $wp_ffpc_backend == NULL )
 			{
 				$wp_ffpc_backend = new Memcache();
-				$wp_ffpc_backend->addServer( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
+				foreach ( $wp_ffpc_config['servers'] as $server_id => $server ) {
+					$wp_ffpc_backend_status[$server_id] = $wp_ffpc_backend->connect( $server['host'] , $server['port'] );
+
+					$wp_ffpc_config['persistent'] = ( $wp_ffpc_config['persistent'] == '1' ) ? true : false;
+					if ( $wp_ffpc_backend_status[$server_id] )
+						$wp_ffpc_backend->addServer( $server['host'] , $server['port'], $wp_ffpc_config['persistent'] );
+						wp_ffpc_log ( "server " . $server_id . " added, persistent mode: " . $wp_ffpc_config['persistent'] );
+				}
 			}
-			$wp_ffpc_backend_status = $wp_ffpc_backend->getStats( );
 			break;
 
 		/* in case of Memcached */
@@ -70,12 +76,27 @@ function wp_ffpc_init( $wp_ffpc_config ) {
 				return false;
 			if ( $wp_ffpc_backend == NULL )
 			{
-				$wp_ffpc_backend = new Memcached();
+				if ( $wp_ffpc_config['persistent'] == '1' )
+					$wp_ffpc_backend = new Memcached( WP_FFPC_PARAM );
+				else
+					$wp_ffpc_backend = new Memcached();
+
 				$wp_ffpc_backend->setOption( Memcached::OPT_COMPRESSION , false );
 				$wp_ffpc_backend->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
-				$wp_ffpc_backend->addServer( $wp_ffpc_config['host'] , $wp_ffpc_config['port'] );
+				$wp_ffpc_serverlist = $wp_ffpc_backend->getServerList();
+
+				if ( empty ( $wp_ffpc_serverlist ) )
+					$wp_ffpc_backend->addServers( $wp_ffpc_config['servers'] );
+					wp_ffpc_log ( "servers added, persistent mode: " . $wp_ffpc_config['persistent'] );
 			}
-			$wp_ffpc_backend_status = array_key_exists( $wp_ffpc_config['host'] . ':' . $wp_ffpc_config['port'] , $wp_ffpc_backend->getStats() );
+			$wp_ffpc_backend_report =  $wp_ffpc_backend->getStats();
+
+			foreach ( $wp_ffpc_config['servers'] as $server_id => $server ) {
+				$wp_ffpc_backend_status[$server_id] = false;
+				if ( array_key_exists( $server_id, $wp_ffpc_backend_report ) && $wp_ffpc_backend_report[ $server_id ]['pid'] != -1 ) {
+					$wp_ffpc_backend_status[$server_id] = true;
+				}
+			}
 			break;
 
 		/* cache type is invalid */
@@ -243,7 +264,7 @@ function wp_ffpc_log ( $string ) {
 
 	/* syslog */
 	if ($wp_ffpc_config['syslog'] && function_exists('syslog') )
-		syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM . $string . WP_FFPC_LOG_TYPE_MSG );
+		syslog( WP_FFPC_LOG_LEVEL , WP_FFPC_PARAM .": " . $string . WP_FFPC_LOG_TYPE_MSG );
 
 }
 ?>

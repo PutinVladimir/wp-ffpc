@@ -14,7 +14,7 @@ if (!isset($wp_ffpc_config))
 /* request uri */
 $wp_ffpc_uri = $_SERVER['REQUEST_URI'];
 /* query string */
-$wp_ffpc_qs = strpos($wp_ffpc_uri, '?');
+$wp_ffpc_qs = stripos($wp_ffpc_uri, '?');
 
 /* no cache for uri with query strings, things usually go bad that way */
 if ($wp_ffpc_qs !== false)
@@ -32,15 +32,15 @@ if (defined('SID') && SID != '')
 	return false;
 
 /* no cache for pages starting with /wp- like WP admin */
-if (strpos($wp_ffpc_uri, '/wp-') !== false)
+if (stripos($wp_ffpc_uri, '/wp-') !== false)
 	return false;
 
 /* no cache for robots.txt */
-if ( strpos($wp_ffpc_uri, 'robots.txt') )
+if ( stripos($wp_ffpc_uri, 'robots.txt') )
 	return false;
 
 /* multisite files can be too large for memcached */
-if (function_exists('is_multisite') && is_multisite() && strpos($wp_ffpc_uri, '/files/') )
+if (function_exists('is_multisite') && is_multisite() && stripos($wp_ffpc_uri, '/files/') )
 	return false;
 
 
@@ -179,7 +179,7 @@ function wp_ffpc_callback($buffer) {
 		return $buffer;
 
 	/* no <body> close tag = not HTML, don't cache */
-	if (strpos($buffer, '</body>') === false)
+	if (stripos($buffer, '</body>') === false)
 		return $buffer;
 
 	/* reset meta to solve conflicts */
@@ -217,6 +217,7 @@ function wp_ffpc_callback($buffer) {
 	$nocache_key = 'nocache_'. $wp_ffpc_meta['type'];
 
 	if ( $wp_ffpc_config[$nocache_key] == 1 ) {
+		wp_ffpc_log ( "not caching, prevented by settings for no-cache: " . $nocache_key );
 		return $buffer;
 	}
 
@@ -273,18 +274,6 @@ function wp_ffpc_callback($buffer) {
 
 	/* set meta */
 	wp_ffpc_set ( $wp_ffpc_meta_key, $wp_ffpc_meta );
-
-	/* set meta per entry for nginx */
-	/*
-	foreach ( $wp_ffpc_meta as $subkey => $subdata )
-	{
-		$subkey = str_replace ( $wp_ffpc_config['prefix_meta'], $wp_ffpc_config['prefix_meta'] . $subkey . "-", $wp_ffpc_meta_key );
-		wp_ffpc_set ( $subkey, $subdata );
-	}
-	*/
-
-	/* set data */
-	//$data = $buffer;
 	wp_ffpc_set ( $wp_ffpc_data_key, $buffer, $compress );
 
 	/* vital for nginx, make no problem at other places */
