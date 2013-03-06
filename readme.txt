@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, APC, memcached, full page cache
 Requires at least: 3.0
 Tested up to: 3.5.1
-Stable tag: 0.4.3
+Stable tag: 0.5
 
 Fast Full Page Cache, backend can be memcached or APC
 
@@ -44,8 +44,8 @@ Parts are based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache
 1. Upload contents of `wp-ffpc.zip` to the `/wp-content/plugins/` directory
 2. Enable WordPress cache by adding `define('WP_CACHE',true);` in wp-config.php
 3. Activate the plugin through the `Plugins` menu in WordPress (please use network wide activation if used in a WordPress Network)
-4. Fine tune the settings in `Settings` -> `wp-ffpc` menu in WordPress.
-For WordPress Network, please visit the Network Admin panel, the options will be available under Network Admin Settings page, in WP-FFPC menu entry.
+4. Check the settings in `Settings` -> `wp-ffpc` menu in WordPress. For WordPress Network, please visit the Network Admin panel, the options will be available under Network Admin Settings page, in WP-FFPC menu entry.
+5. Save the settings. THIS STEP IS MANDATORY: without saving the settings, there will be no activated caching!
 
 == Frequently Asked Questions ==
 
@@ -60,18 +60,21 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 == Changelog ==
 
 = 0.5 =
-2013.03.04
+2013.03.06
 
 WARNING, MAJOR CHANGES!
 
-* long-running %3C really fixed ( version 0.4.3 was dead end ) by the help of Mark Costlow <cheeks@swcp.com>
-* UI cleanup, introducing tabbed interface
+* default values bug ( causing %3C bug ) really fixed by the help of Mark Costlow <cheeks@swcp.com>
+* UI cleanup, new tabbed layout
 * WP-FFPC options moved from global menu to under Settings in both Site and Network Admin interfaces
 * added 'persistent' checkbox for memcached connections
 * added support for multiple memcached servers, feature request from ivan.buttinoni ( ivanbuttinoni @ WordPress.org forum )
 * case-sensitive string checks replaced with case-insensitives, contribution of Mark Costlow <cheeks@swcp.com>
 * refactored settings saving mechanism
 * additional syslog informations
+* additional comments on the code
+* lots of minor fixes
+* donation link on the top
 
 = 0.4.3 =
 2013.03.03
