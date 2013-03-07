@@ -66,6 +66,7 @@ define ( 'WP_FFPC_CONFIG_VAR' , '$wp_ffpc_config' );
 define ( 'WP_FFPC_SERVER_LIST_SEPARATOR' , ',' );
 define ( 'WP_FFPC_SERVER_SEPARATOR', ':' );
 define ( 'WP_FFPC_DONATION_LINK', 'https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC' );
+define ( 'WP_FFPC_FILE' , plugin_basename(__FILE__) );
 
 /* get the common functions */
 include_once (WP_FFPC_DIR .'/wp-ffpc-common.php');
@@ -91,12 +92,17 @@ if (!class_exists('WPFFPC')) {
 
 		/* stores information if plugin is network active or not */
 		var $network = false;
+		var $settingslink = '';
 
 		/**
 		* constructor
 		*
 		*/
 		function __construct() {
+			/* set settings page link */
+			$this->settingslink = 'options-general.php?page=' . WP_FFPC_OPTIONS_PAGE;
+
+			/* check if plugin is network-activated */
 			$this->check_for_network();
 
 			/* register options */
@@ -120,6 +126,12 @@ if (!class_exists('WPFFPC')) {
 				with the use of Hyper Cache.*/
 				add_filter('redirect_canonical', array( $this , 'redirect_canonical') , 10, 2);
 			}
+
+			$plugin = plugin_basename( __FILE__ );
+			if ( $this->network )
+				add_filter( "network_admin_plugin_action_links_$plugin", array( $this, 'settings_link' ) );
+			else
+				add_filter( "plugin_action_links_$plugin", array( $this, 'settings_link' ) );
 
 			/* add admin styling */
 			if( is_admin() )
@@ -168,11 +180,17 @@ if (!class_exists('WPFFPC')) {
 			{
 				$this->save_settings ();
 				$this->status = 1;
-				header("Location: admin.php?page=" . WP_FFPC_OPTIONS_PAGE . "&saved=true");
+
+				header( "Location: ". $this->settingslink ."&saved=true" );
 			}
 
+			if ( $this->network )
+				$optionspage = 'settings.php';
+			else
+				$optionspage = 'options-general.php';
+
 			/* we use settings menu, no need for highest level menu */
-			add_submenu_page('settings.php', 'Edit WP-FFPC options', __('WP-FFPC', WP_FFPC_PARAM ), 10, WP_FFPC_OPTIONS_PAGE , array ( $this , 'admin_panel' ) );
+			add_submenu_page( $optionspage, 'Edit WP-FFPC options', __('WP-FFPC', WP_FFPC_PARAM ), 10, WP_FFPC_OPTIONS_PAGE , array ( $this , 'admin_panel' ) );
 		}
 
 		/**
@@ -527,10 +545,15 @@ if (!class_exists('WPFFPC')) {
 		 *
 		 */
 		function check_for_network( ) {
-			if ( is_multisite() ) {
+			if ( is_multisite() )
+			{
 				$plugins = get_site_option( 'active_sitewide_plugins');
-				if ( isset($plugins['wp-ffpc/wp-ffpc.php']) ) {
+				/* see if plugins is active */
+				if ( isset($plugins['wp-ffpc/wp-ffpc.php']) )
+				{
 					$this->network = true;
+					/* replace settings link */
+					$this->settingslink = str_replace( 'options-general.php' , 'settings.php' , $this->settingslink );
 				}
 			}
 		}
@@ -758,6 +781,17 @@ if (!class_exists('WPFFPC')) {
 			if ( ! $firstrun )
 				$this->generate_config();
 
+		}
+
+
+		/**
+		 *
+		 *
+		 */
+		function settings_link ( $links ) {
+			$settings_link = '<a href="' . $this->settingslink . '">' . __( 'Settings', WP_FFPC_PARAM ) . '</a>';
+			array_unshift( $links, $settings_link );
+			return $links;
 		}
 
 		/**
