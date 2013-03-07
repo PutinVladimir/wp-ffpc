@@ -67,6 +67,10 @@ define ( 'WP_FFPC_SERVER_LIST_SEPARATOR' , ',' );
 define ( 'WP_FFPC_SERVER_SEPARATOR', ':' );
 define ( 'WP_FFPC_DONATION_LINK', 'https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC' );
 define ( 'WP_FFPC_FILE' , plugin_basename(__FILE__) );
+define ( 'WP_FFPC_PLUGIN' , 'wp-ffpc/wp-ffpc.php' );
+
+if ( ! function_exists( 'is_plugin_active_for_network' ) )
+	require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
 
 /* get the common functions */
 include_once (WP_FFPC_DIR .'/wp-ffpc-common.php');
@@ -81,6 +85,10 @@ if (!class_exists('WPFFPC')) {
 
 		/* for options array */
 		var $options = array();
+		/* stores options for all sites & all data */
+		var $all_options = array();
+		/* key for current options array */
+		var $options_key = '';
 		/* for default options array */
 		var $defaults = array();
 		/* memcached server object */
@@ -265,7 +273,7 @@ if (!class_exists('WPFFPC')) {
 					<p>
 					<?php
 						_e( '<strong>Backend status:</strong><br />', WP_FFPC_PARAM );
-						$init = wp_ffpc_init( $this->options);
+						$init = wp_ffpc_init( $this->options );
 						/* we need to go through all servers */
 						foreach ( $this->options['servers'] as $server_string => $server ) {
 							echo $server['host'] . ":" . $server['port'] ." => ";
@@ -545,17 +553,19 @@ if (!class_exists('WPFFPC')) {
 		 *
 		 */
 		function check_for_network( ) {
-			if ( is_multisite() )
+
+			$this->options_key = $_SERVER['HTTP_HOST'];
+
+			if ( is_plugin_active_for_network ( WP_FFPC_PLUGIN ) )
 			{
-				$plugins = get_site_option( 'active_sitewide_plugins');
-				/* see if plugins is active */
-				if ( isset($plugins['wp-ffpc/wp-ffpc.php']) )
-				{
-					$this->network = true;
-					/* replace settings link */
-					$this->settingslink = str_replace( 'options-general.php' , 'settings.php' , $this->settingslink );
-				}
+				/* set active for network */
+				$this->network = true;
+				/* replace settings link */
+				$this->settingslink = str_replace( 'options-general.php' , 'settings.php' , $this->settingslink );
+				/* set options key */
+				$this->options_key = 'network';
 			}
+
 		}
 
 		/**
@@ -563,8 +573,10 @@ if (!class_exists('WPFFPC')) {
 		 *
 		 */
 		function deactivate ( ) {
-			if (@file_exists (WP_FFPC_ACACHE_MAIN_FILE))
-				@unlink (WP_FFPC_ACACHE_MAIN_FILE);
+			//if (@file_exists (WP_FFPC_ACACHE_MAIN_FILE))
+			//	@unlink (WP_FFPC_ACACHE_MAIN_FILE);
+			$this->save_settings( false, true );
+			//$this->generate_config ( true );
 		}
 
 		/**
@@ -602,10 +614,13 @@ if (!class_exists('WPFFPC')) {
 		}
 
 		/**
-		 * generates main advanced-cache system-wide config file
+		 * generates main advanced-cache config file
+		 *
+		 * @param $delete_current
+		 * 	deletes current config settings on deactivation
 		 *
 		 */
-		function generate_config() {
+		function generate_config( ) {
 
 			$acache = WP_FFPC_ACACHE_MAIN_FILE;
 			/* is file currently exists, delete it*/
@@ -616,10 +631,15 @@ if (!class_exists('WPFFPC')) {
 			if ( @file_exists( $acache ))
 				return false;
 
+			/* if no config left, don't create empty config */
+			if ( empty ( $this->all_options ) )
+				return false;
+
+			//if ( is_plugin_active_for_network ( WP_FFPC_PLUGIN ) && !is_plugin_active ( WP_FFPC_PLUGIN ) )
+			//	return false;
+
 			$string = '<?php'. "\n" . 'global '. WP_FFPC_CONFIG_VAR .";\n";
-
-			$string .= WP_FFPC_CONFIG_VAR .' = ' .var_export( $this->options , true ) . ';';
-
+			$string .= WP_FFPC_CONFIG_VAR .' = ' .var_export( $this->all_options , true ) . ';';
 			$string .= "\n\ninclude_once ('" . WP_FFPC_ACACHE_COMMON_FILE . "');\ninclude_once ('" . WP_FFPC_ACACHE_INC_FILE . "');\n";
 
 			file_put_contents($acache, $string);
@@ -661,7 +681,14 @@ if (!class_exists('WPFFPC')) {
 			$this->defaults = $defaults;
 
 			/* maps saved options and defaults */
-			$this->options = get_site_option( WP_FFPC_PARAM , $defaults, false );
+			//$this->options = get_site_option( WP_FFPC_PARAM , $defaults, false );
+
+			$this->all_options = get_site_option( WP_FFPC_PARAM );
+
+			if ( ! empty ( $this->all_options[ $this->options_key ] ) )
+				$this->options = array_merge ( $defaults, $this->all_options[ $this->options_key ] );
+			else
+				$this->options = $defaults;
 
 		}
 
@@ -736,53 +763,24 @@ if (!class_exists('WPFFPC')) {
 		 * 	boolean: true if the function is called on plugin activation
 		 *
 		 */
-		function save_settings ( $firstrun = false ) {
+		function save_settings ( $firstrun = false, $delete_current = false ) {
 
-			$options = $this->defaults;
-
-			/* only try to update defaults if it's not first run and $_POST is not empty */
-			if ( !$firstrun && !empty ( $_POST ) )
-			{
-				foreach ( $options as $key => $default )
-				{
-					/* $_POST element is available */
-					if (!empty($_POST[$key]))
-					{
-						$update = $_POST[$key];
-						/* get rid of slashed */
-						if ( strlen( $update ) !=0 &&!is_numeric($update) )
-							$update = stripslashes($update);
-
-						$options[$key] = $update;
-					}
-					/* empty $_POST element: when HTML form posted, empty checkboxes a 0 values will not be
-					  part of the $_POST array, thus we need to check if this is the situation by
-					  checking the types of the elements, since a missing value could mean update from 1 to 0
-					*/
-					elseif ( empty( $_POST[$key] ) && ( is_bool ( $default ) || is_int( $default ) ) )
-					{
-						$options[$key] = 0;
-					}
-				}
-			}
-
-			$this->options = $options;
-
-			/* set up server array from hosts config var */
-			$this->split_hosts();
+			if ( $delete_current )
+				unset ( $this->all_options[ $this->options_key ] );
+			else
+				$this->update_settings( $firstrun );
 
 			/* save options */
-			update_site_option( WP_FFPC_PARAM , $this->options );
+			update_site_option( WP_FFPC_PARAM , $this->all_options );
 
 			/* invalidate cache, this is neccessary */
 			$this->invalidate('system_flush');
 
 			/* if it's not for the first run, generate the config file */
 			if ( ! $firstrun )
-				$this->generate_config();
+				$this->generate_config( );
 
 		}
-
 
 		/**
 		 *
@@ -830,6 +828,43 @@ if (!class_exists('WPFFPC')) {
 			wp_ffpc_log ( "plugin uninstalled ");
 		}
 
+
+		function update_settings ( $firstrun = false ) {
+			$options = $this->defaults;
+
+			/* only try to update defaults if it's not first run and $_POST is not empty */
+			if ( !$firstrun && !empty ( $_POST ) )
+			{
+				foreach ( $options as $key => $default )
+				{
+					/* $_POST element is available */
+					if (!empty($_POST[$key]))
+					{
+						$update = $_POST[$key];
+						/* get rid of slashed */
+						if ( strlen( $update ) !=0 &&!is_numeric($update) )
+							$update = stripslashes($update);
+
+						$options[$key] = $update;
+					}
+					/* empty $_POST element: when HTML form posted, empty checkboxes a 0 values will not be
+					  part of the $_POST array, thus we need to check if this is the situation by
+					  checking the types of the elements, since a missing value could mean update from 1 to 0
+					*/
+					elseif ( empty( $_POST[$key] ) && ( is_bool ( $default ) || is_int( $default ) ) )
+					{
+						$options[$key] = 0;
+					}
+				}
+			}
+
+			$this->options = $options;
+
+			/* set up server array from hosts config var */
+			$this->split_hosts();
+
+			$this->all_options[ $this->options_key ] = $this->options;
+		}
 	}
 }
 

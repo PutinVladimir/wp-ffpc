@@ -13,7 +13,7 @@ global $wp_nmc_redirect;
 if (!defined('WP_FFPC_PARAM'))
 	define ( 'WP_FFPC_PARAM' , 'wp-ffpc' );
 /* log level */
-define ('WP_FFPC_LOG_LEVEL' , LOG_INFO );
+define ('WP_FFPC_LOG_LEVEL' , LOG_WARNING );
 /* define log ending message */
 define ('WP_FFPC_LOG_TYPE_MSG' , '; cache type: '. $wp_ffpc_config['cache_type'] );
 

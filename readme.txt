@@ -23,12 +23,12 @@ WP-FFPC is a full page cache plugin for WordPress. Supports memcached server or 
 * fallback to no caching if any error or problem occurs
 * syslog & debug settings for troubleshooting
 * supports multiple memcached backends
-* Wordpress Network compatible(2)
+* Wordpress Network compatible (2)
 * nginx compatible(3)
 
 (1) pingback hostname will always be generated from the accessed domain, otherwise speed would get highly compromised
 
-(2) If enabled as network-wide plugin in a WordPress Network, the configuration will only be available for network admins at the network admin panel, will be system-wide and will be applied for every blog.
+(2) Plugin is capable of either Network wide or per site settings, meaning if not network-wide enabled, settings could vary from site to site, plugin could be turned off and on without interfering other sites.
 
 (3) nginx compatility means that if used with PHP Memcache or PHP Memcached extension, the created memcached entries can be read and served directly from nginx.
 If used with APC, this feature is not available (no APC module for nginx).
@@ -55,6 +55,13 @@ It's recommended to use Memcached instead of Memcache.
 You have to remove the default yum package, named `php-pecl-memcache` and install `Memcache` or `Memcached` through PECL.
 
 == Changelog ==
+
+= 0.6 =
+*development branch*
+
+* true WordPress Network support:
+  * if enabled network-wide, settings will be the same for every site
+  * if enabled only per site settings could vary from site to site and cache could be active or disabled on a per site basis without interfering other sites
 
 = 0.5.1 =
 *2013.03.07*
