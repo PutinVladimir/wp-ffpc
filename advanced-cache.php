@@ -216,6 +216,7 @@ function wp_ffpc_callback($buffer) {
 	/* check if caching is disabled for page type */
 	$nocache_key = 'nocache_'. $wp_ffpc_meta['type'];
 
+	/* don't cache if prevented by rule, also, log it */
 	if ( $wp_ffpc_config[$nocache_key] == 1 ) {
 		wp_ffpc_log ( "not caching, prevented by settings for no-cache: " . $nocache_key );
 		return $buffer;
