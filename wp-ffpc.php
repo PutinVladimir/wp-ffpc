@@ -11,8 +11,6 @@ License: GPL2
 
 /*  Copyright 2010-2013 Peter Molnar  (email : hello@petermolnar.eu )
 
-    Many thanks to contributor Mark Costlow <cheeks@swcp.com>
-
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2, as
     published by the Free Software Foundation.
@@ -68,6 +66,7 @@ define ( 'WP_FFPC_SERVER_SEPARATOR', ':' );
 define ( 'WP_FFPC_DONATION_LINK', 'https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC' );
 define ( 'WP_FFPC_FILE' , plugin_basename(__FILE__) );
 define ( 'WP_FFPC_PLUGIN' , 'wp-ffpc/wp-ffpc.php' );
+define ( 'WP_FFPC_VERSION' , '0.5' );
 
 if ( ! function_exists( 'is_plugin_active_for_network' ) )
 	require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
@@ -191,6 +190,14 @@ if (!class_exists('WPFFPC')) {
 
 				header( "Location: ". $this->settingslink ."&saved=true" );
 			}
+			
+			/* save parameter updates, if there are any */
+			if ( isset($_POST[WP_FFPC_PARAM . '-delete']) )
+			{
+				$this->delete_options();
+				$this->status = 2;
+				header( "Location: ". $this->settingslink ."&deleted=true" );
+			}
 
 			if ( $this->network )
 				$optionspage = 'settings.php';
@@ -219,6 +226,13 @@ if (!class_exists('WPFFPC')) {
 			 */
 			if ($_GET['saved']=='true' || $this->status == 1) : ?>
 				<div id='setting-error-settings_updated' class='updated settings-error'><p><strong>Settings saved.</strong></p></div>
+			<?php endif;
+
+			/**
+			 * if options were saved
+			 */
+			if ($_GET['deleted']=='true' || $this->status == 2) : ?>
+				<div id='setting-error-options_deleted' class='error'><p><strong>Plugin options deleted.</strong></p></div>
 			<?php endif;
 
 			/**
@@ -516,7 +530,10 @@ if (!class_exists('WPFFPC')) {
 				<pre><?php echo $nginx; ?></pre>
 				</fieldset>
 
-				<p class="clearcolumns"><input class="button-primary" type="submit" name="<?php echo WP_FFPC_PARAM; ?>-save" id="<?php echo WP_FFPC_PARAM; ?>-save" value="Save Changes" /></p>
+				<p class="clearcolumns">
+					<input class="button-primary" type="submit" name="<?php echo WP_FFPC_PARAM; ?>-save" id="<?php echo WP_FFPC_PARAM; ?>-save" value="Save Changes" />
+					<input class="button-secondary" style="float: right" type="submit" name="<?php echo WP_FFPC_PARAM; ?>-delete" id="<?php echo WP_FFPC_PARAM; ?>-delete" value="Delete options from DB" />
+				</p>
 			</form>
 			<?php
 
@@ -578,6 +595,15 @@ if (!class_exists('WPFFPC')) {
 			$this->save_settings( false, true );
 			//$this->generate_config ( true );
 		}
+		
+		/**
+		 * delete options from database
+		 *
+		 */
+		 function delete_options () {
+			delete_site_option( WP_FFPC_PARAM );
+			wp_ffpc_log ( "plugin options deleted ");
+		 }
 
 		/**
 		 * invalidate cache
@@ -690,6 +716,20 @@ if (!class_exists('WPFFPC')) {
 			else
 				$this->options = $defaults;
 
+			/* check for version number, if none, we're upgrading from 0.5, therefore we need to copy the settings and remove them after
+			   this will run once only at all
+			*/
+			if ( empty ( $this->all_options['version'] ) )
+			{
+				foreach ( array_keys( $defaults ) as $key ) {
+					if ( isset ( $this->all_options[$key] ) )
+					{
+						$this->options[$key] = $this->all_options[$key];
+						unset ( $this->all_options[$key] );
+					}
+				}
+			}
+
 		}
 
 		/**
@@ -769,6 +809,8 @@ if (!class_exists('WPFFPC')) {
 				unset ( $this->all_options[ $this->options_key ] );
 			else
 				$this->update_settings( $firstrun );
+
+			$this->all_options['version'] = WP_FFPC_VERSION;
 
 			/* save options */
 			update_site_option( WP_FFPC_PARAM , $this->all_options );
