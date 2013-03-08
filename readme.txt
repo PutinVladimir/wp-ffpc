@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, APC, memcache, memcached, page cache, full page cache, nginx
 Requires at least: 3.0
 Tested up to: 3.5.1
-Stable tag: 0.5.1
+Stable tag: 0.6.1
 
 Store WordPress pages in memcached and serve them with nginx - unbeatable speed!
 
@@ -56,8 +56,13 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 
 == Changelog ==
 
+= 0.6.1 =
+*2013.03.08*
+
+* refactored & corrected backend status check for memcached driver
+
 = 0.6 =
-*development branch*
+*2013.03.08*
 
 * true WordPress Network support:
   * if enabled network-wide, settings will be the same for every site

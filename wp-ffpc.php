@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.6
+Version: 0.6.1
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: Fast Full Page Cache, backend can be memcached or APC
 Author: Peter Molnar
@@ -66,7 +66,7 @@ define ( 'WP_FFPC_SERVER_SEPARATOR', ':' );
 define ( 'WP_FFPC_DONATION_LINK', 'https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC' );
 define ( 'WP_FFPC_FILE' , plugin_basename(__FILE__) );
 define ( 'WP_FFPC_PLUGIN' , 'wp-ffpc/wp-ffpc.php' );
-define ( 'WP_FFPC_VERSION' , '0.6' );
+define ( 'WP_FFPC_VERSION' , '0.6.1' );
 
 if ( ! function_exists( 'is_plugin_active_for_network' ) )
 	require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
@@ -163,6 +163,13 @@ if (!class_exists('WPFFPC')) {
 			/* not network, will be in simple admin menu */
 			else
 				add_action('admin_menu', array( $this , 'admin_init') );
+
+			if ( $this->all_options['version'] < WP_FFPC_VERSION ) {
+				$this->save_settings ();
+				if ( @file_exists( WP_FFPC_ACACHE_MAIN_FILE )) {
+					$this->generate_config();
+				}
+			}
 		}
 
 		/**
@@ -291,8 +298,12 @@ if (!class_exists('WPFFPC')) {
 						/* we need to go through all servers */
 						foreach ( $this->options['servers'] as $server_string => $server ) {
 							echo $server['host'] . ":" . $server['port'] ." => ";
-							$server_status = ( empty($init) || $init[$server_string] == 0 ) ? '<span class="error-msg">down</span>' : '<span class="ok-msg">up & running</span>' ;
-							echo $server_status ."<br />\n";
+							if ( is_array($init) && $init[$server_string] === false )
+								_e ( '<span class="error-msg">down</span><br />', WP_FFPC_PARAM );
+							elseif ( is_array($init) &&  $init[$server_string] === true )
+								_e ( '<span class="ok-msg">up & running</span><br />', WP_FFPC_PARAM );
+							else
+								_e ( '<span class="error-msg">unknown, please try re-saving settings!</span><br />', WP_FFPC_PARAM );
 						}
 					?>
 					</p>
@@ -686,7 +697,7 @@ if (!class_exists('WPFFPC')) {
 				'prefix_data' =>'data-',
 				'charset' => 'utf-8',
 				'pingback_status'=> false,
-				'debug' => true,
+				'debug' => false,
 				'syslog' => false,
 				'cache_type' => 'memcached',
 				'cache_loggedin' => false,
