@@ -11,7 +11,7 @@ Store WordPress pages in memcached and serve them with nginx - unbeatable speed!
 == Description ==
 WP-FFPC is a full page cache plugin for WordPress. Supports memcached server or APC as backend and both widely available PHP memcached modules, Memcache and Memcached as well.
 
-**from version 0.6.1 a lot of things have changed, including true multisite support ( possible per site different settings in a network ), rewritten memcached backend, etc. Please delete the previous settings by using the "delete options" button on the bottom right of the settings page after upgrading from previous versions.**
+** from version 0.6.1 a lot of things have changed, including true multisite support ( possible per site different settings in a network ), rewritten memcached backend, etc. Please delete the previous settings by using the "delete options" button on the bottom right of the settings page after upgrading from previous versions.**
 
 = Features: =
 * exclude possibilities: of home, feeds, archieves, pages, singles
@@ -31,6 +31,7 @@ WP-FFPC is a full page cache plugin for WordPress. Supports memcached server or 
 (1) pingback hostname will always be generated from the accessed domain, otherwise speed would get highly compromised
 
 (2) Plugin is capable of either Network wide or per site settings, meaning if not network-wide enabled, settings could vary from site to site, plugin could be turned off and on without interfering other sites.
+**Only for subdomain ( or different domain) setup**, subdirectory setup is not yet supported!
 
 (3) nginx compatility means that if used with PHP Memcache or PHP Memcached extension, the created memcached entries can be read and served directly from nginx.
 If used with APC, this feature is not available (no APC module for nginx).
@@ -40,6 +41,7 @@ NOTE: some features ( most of additional HTTP headers for example, like pingback
 Parts are based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") plugin by Satollo (info@satollo.net).
 
 == Installation ==
+
 1. Upload contents of `wp-ffpc.zip` to the `/wp-content/plugins/` directory
 2. Enable WordPress cache by adding `define('WP_CACHE',true);` in wp-config.php
 3. Activate the plugin through the `Plugins` menu in WordPress ( site or Network wide )
@@ -55,6 +57,15 @@ It's recommended to use Memcached instead of Memcache.
 
 = How to use the plugin on Amazon Linux? =
 You have to remove the default yum package, named `php-pecl-memcache` and install `Memcache` or `Memcached` through PECL.
+
+== Screenshots ==
+
+1. settings screen, cache type and basic settings
+2. debug and in depth-options
+3. cache exceptions
+4. apc settings
+5. memcached servers settings
+6. nginx example
 
 == Changelog ==
 
