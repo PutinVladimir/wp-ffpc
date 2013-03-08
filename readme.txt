@@ -13,7 +13,7 @@ WP-FFPC is a full page cache plugin for WordPress. Supports memcached server or 
 
 = Support & Info =
 I provide support for the plugin as best as I can, but it comes without guarantee.
-Please post feature requests to [Feature request topic on Wordpress.org](http://wordpress.org/support/topic/feature-requests-14 "Feature request topic on Wordpress.org").
+Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic").
 
 = Notice for versions before 0.6.1 =
 **from version 0.6.1 a lot of things have changed, including true multisite support ( possible per site different settings in a network ), rewritten memcached backend, etc. Please delete the previous settings by using the "delete options" button on the bottom right of the settings page after upgrading from previous versions.**
