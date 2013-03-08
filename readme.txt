@@ -11,6 +11,8 @@ Store WordPress pages in memcached and serve them with nginx - unbeatable speed!
 == Description ==
 WP-FFPC is a full page cache plugin for WordPress. Supports memcached server or APC as backend and both widely available PHP memcached modules, Memcache and Memcached as well.
 
+**from version 0.6.1 a lot of things have changed, including true multisite support ( possible per site different settings in a network ), rewritten memcached backend, etc. Please delete the previous settings by using the "delete options" button on the bottom right of the settings page after upgrading from previous versions.**
+
 = Features: =
 * exclude possibilities: of home, feeds, archieves, pages, singles
 * possibility to enable caching for logged-in users
