@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.5.1
+Version: 0.6
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: Fast Full Page Cache, backend can be memcached or APC
 Author: Peter Molnar
@@ -66,7 +66,7 @@ define ( 'WP_FFPC_SERVER_SEPARATOR', ':' );
 define ( 'WP_FFPC_DONATION_LINK', 'https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC' );
 define ( 'WP_FFPC_FILE' , plugin_basename(__FILE__) );
 define ( 'WP_FFPC_PLUGIN' , 'wp-ffpc/wp-ffpc.php' );
-define ( 'WP_FFPC_VERSION' , '0.5' );
+define ( 'WP_FFPC_VERSION' , '0.6' );
 
 if ( ! function_exists( 'is_plugin_active_for_network' ) )
 	require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
@@ -190,7 +190,7 @@ if (!class_exists('WPFFPC')) {
 
 				header( "Location: ". $this->settingslink ."&saved=true" );
 			}
-			
+
 			/* save parameter updates, if there are any */
 			if ( isset($_POST[WP_FFPC_PARAM . '-delete']) )
 			{
@@ -595,7 +595,7 @@ if (!class_exists('WPFFPC')) {
 			$this->save_settings( false, true );
 			//$this->generate_config ( true );
 		}
-		
+
 		/**
 		 * delete options from database
 		 *

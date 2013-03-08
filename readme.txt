@@ -62,6 +62,7 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 * true WordPress Network support:
   * if enabled network-wide, settings will be the same for every site
   * if enabled only per site settings could vary from site to site and cache could be active or disabled on a per site basis without interfering other sites
+* delete options button to help solving problems
 
 = 0.5.1 =
 *2013.03.07*
