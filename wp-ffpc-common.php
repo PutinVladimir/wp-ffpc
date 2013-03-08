@@ -13,7 +13,7 @@ global $wp_nmc_redirect;
 if (!defined('WP_FFPC_PARAM'))
 	define ( 'WP_FFPC_PARAM' , 'wp-ffpc' );
 /* log level */
-define ('WP_FFPC_LOG_LEVEL' , LOG_INFO);
+define ('WP_FFPC_LOG_LEVEL' , LOG_WARNING );
 /* define log ending message */
 define ('WP_FFPC_LOG_TYPE_MSG' , '; cache type: '. $wp_ffpc_config['cache_type'] );
 
@@ -56,17 +56,20 @@ function wp_ffpc_init( $wp_ffpc_config ) {
 			if (!class_exists('Memcache'))
 				return false;
 			if ( $wp_ffpc_backend == NULL )
-			{
 				$wp_ffpc_backend = new Memcache();
-				foreach ( $wp_ffpc_config['servers'] as $server_id => $server ) {
-					$wp_ffpc_backend_status[$server_id] = $wp_ffpc_backend->connect( $server['host'] , $server['port'] );
 
-					$wp_ffpc_config['persistent'] = ( $wp_ffpc_config['persistent'] == '1' ) ? true : false;
-					if ( $wp_ffpc_backend_status[$server_id] )
-						$wp_ffpc_backend->addServer( $server['host'] , $server['port'], $wp_ffpc_config['persistent'] );
-						wp_ffpc_log ( "server " . $server_id . " added, persistent mode: " . $wp_ffpc_config['persistent'] );
+			foreach ( $wp_ffpc_config['servers'] as $server_id => $server ) {
+				$wp_ffpc_backend_status[$server_id] = $wp_ffpc_backend->connect( $server['host'] , $server['port'] );
+
+				$wp_ffpc_config['persistent'] = ( $wp_ffpc_config['persistent'] == '1' ) ? true : false;
+				if ( $wp_ffpc_backend_status[$server_id] )
+				{
+					$wp_ffpc_backend_status[$server_id] = true;
+					$wp_ffpc_backend->addServer( $server['host'] , $server['port'], $wp_ffpc_config['persistent'] );
+					wp_ffpc_log ( "server " . $server_id . " added, persistent mode: " . $wp_ffpc_config['persistent'] );
 				}
 			}
+			return $wp_ffpc_backend_status;
 			break;
 
 		/* in case of Memcached */
@@ -74,36 +77,65 @@ function wp_ffpc_init( $wp_ffpc_config ) {
 			/* Memcached class does not exist, Memcached extension is not available */
 			if (!class_exists('Memcached'))
 				return false;
+			/* check is there's no backend connection yet */
 			if ( $wp_ffpc_backend == NULL )
 			{
+				/* persistent backend needs an identifier */
 				if ( $wp_ffpc_config['persistent'] == '1' )
 					$wp_ffpc_backend = new Memcached( WP_FFPC_PARAM );
 				else
 					$wp_ffpc_backend = new Memcached();
 
+				/* use binary and not compressed format, good for nginx and still fast */
 				$wp_ffpc_backend->setOption( Memcached::OPT_COMPRESSION , false );
 				$wp_ffpc_backend->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
-				$wp_ffpc_serverlist = $wp_ffpc_backend->getServerList();
-
-				if ( empty ( $wp_ffpc_serverlist ) )
-					$wp_ffpc_backend->addServers( $wp_ffpc_config['servers'] );
-					wp_ffpc_log ( "servers added, persistent mode: " . $wp_ffpc_config['persistent'] );
 			}
-			$wp_ffpc_backend_report =  $wp_ffpc_backend->getStats();
 
-			foreach ( $wp_ffpc_config['servers'] as $server_id => $server ) {
-				$wp_ffpc_backend_status[$server_id] = false;
-				if ( array_key_exists( $server_id, $wp_ffpc_backend_report ) && $wp_ffpc_backend_report[ $server_id ]['pid'] != -1 ) {
-					$wp_ffpc_backend_status[$server_id] = true;
+			/* check if we already have list of servers, only add server if it's not already connected */
+			$wp_ffpc_serverlist = $wp_ffpc_backend->getServerList();
+
+			/* create check array if backend servers are already connected */
+			if ( !empty ( $wp_ffpc_serverlist ) )
+				foreach ( $wp_ffpc_serverlist as $server )
+					$wp_ffpc_serverlist_[ $server['host'] . ":" . $server['port'] ] = true;
+
+			/* reset all configured server status to unknown */
+			foreach ( $wp_ffpc_config['servers'] as $server_id => $server )
+				$wp_ffpc_backend_status[$server_id] = -1;
+
+			/* if there's no server to add, don't add them */
+			if ( empty ( $wp_ffpc_config['servers'] ) )
+			{
+				wp_ffpc_log ( "not adding empty set of servers, please check your settings!" );
+			}
+			else
+			{
+				foreach ( $wp_ffpc_config['servers'] as $server_id => $server ) {
+					if (!@array_key_exists($server_id , $wp_ffpc_serverlist_ ))
+					{
+						$wp_ffpc_backend->addServer( $server['host'], $server['port'] );
+						wp_ffpc_log ( "server ". $server_id ." added, persistent mode: " . $wp_ffpc_config['persistent'] );
+					}
 				}
 			}
+
+			/* server status will be calculated by getting server stats */
+			$wp_ffpc_backend_report =  $wp_ffpc_backend->getStats();
+			foreach ( $wp_ffpc_backend_report as $server_id => $server ) {
+				$wp_ffpc_backend_status[$server_id] = false;
+				/* if server uptime is not empty, it's most probably up & running */
+				if ( !empty($server['uptime']) )
+					$wp_ffpc_backend_status[$server_id] = true;
+			}
+
 			break;
 
 		/* cache type is invalid */
 		default:
-			return false;
+			break;
 	}
-	return $wp_ffpc_backend_status;
+
+	return ( empty ( $wp_ffpc_backend_status ) ? false : $wp_ffpc_backend_status );
 }
 
 /**

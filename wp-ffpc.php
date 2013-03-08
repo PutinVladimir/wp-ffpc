@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.5
+Version: 0.6.1
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: Fast Full Page Cache, backend can be memcached or APC
 Author: Peter Molnar
@@ -9,7 +9,7 @@ Author URI: http://petermolnar.eu/
 License: GPL2
 */
 
-/*  Copyright 2010-2011 Peter Molnar  (email : hello@petermolnar.eu )
+/*  Copyright 2010-2013 Peter Molnar  (email : hello@petermolnar.eu )
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2, as
@@ -63,7 +63,15 @@ define ( 'WP_FFPC_ACACHE_COMMON_FILE' , WP_FFPC_DIR. '/wp-ffpc-common.php' );
 define ( 'WP_FFPC_CONFIG_VAR' , '$wp_ffpc_config' );
 define ( 'WP_FFPC_SERVER_LIST_SEPARATOR' , ',' );
 define ( 'WP_FFPC_SERVER_SEPARATOR', ':' );
+define ( 'WP_FFPC_DONATION_LINK', 'https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC' );
+define ( 'WP_FFPC_FILE' , plugin_basename(__FILE__) );
+define ( 'WP_FFPC_PLUGIN' , 'wp-ffpc/wp-ffpc.php' );
+define ( 'WP_FFPC_VERSION' , '0.6.1' );
 
+if ( ! function_exists( 'is_plugin_active_for_network' ) )
+	require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+
+/* get the common functions */
 include_once (WP_FFPC_DIR .'/wp-ffpc-common.php');
 
 if (!class_exists('WPFFPC')) {
@@ -76,6 +84,10 @@ if (!class_exists('WPFFPC')) {
 
 		/* for options array */
 		var $options = array();
+		/* stores options for all sites & all data */
+		var $all_options = array();
+		/* key for current options array */
+		var $options_key = '';
 		/* for default options array */
 		var $defaults = array();
 		/* memcached server object */
@@ -85,13 +97,19 @@ if (!class_exists('WPFFPC')) {
 		/* status, 0 = nothing happened*/
 		var $status = 0;
 
+		/* stores information if plugin is network active or not */
 		var $network = false;
+		var $settingslink = '';
 
 		/**
 		* constructor
 		*
 		*/
 		function __construct() {
+			/* set settings page link */
+			$this->settingslink = 'options-general.php?page=' . WP_FFPC_OPTIONS_PAGE;
+
+			/* check if plugin is network-activated */
 			$this->check_for_network();
 
 			/* register options */
@@ -101,7 +119,7 @@ if (!class_exists('WPFFPC')) {
 			$alive = wp_ffpc_init( $this->options );
 
 			/* don't register hooks if backend is dead */
-			if ($alive)
+			if (!$alive)
 			{
 				/* init inactivation hooks */
 				add_action('switch_theme', array( $this , 'invalidate'), 0);
@@ -116,11 +134,17 @@ if (!class_exists('WPFFPC')) {
 				add_filter('redirect_canonical', array( $this , 'redirect_canonical') , 10, 2);
 			}
 
+			$plugin = plugin_basename( __FILE__ );
+			if ( $this->network )
+				add_filter( "network_admin_plugin_action_links_$plugin", array( $this, 'settings_link' ) );
+			else
+				add_filter( "plugin_action_links_$plugin", array( $this, 'settings_link' ) );
+
 			/* add admin styling */
 			if( is_admin() )
 			{
 				wp_enqueue_script ( "jquery-ui-tabs" );
-				wp_enqueue_style( WP_FFPC_PARAM . '.admin.css' , WP_FFPC_URL . '/css/'. WP_FFPC_PARAM .'.admin.css', false, '0.1');
+				wp_enqueue_style( WP_FFPC_PARAM . '.admin.css' , WP_FFPC_URL . '/' . WP_FFPC_PARAM .'.admin.css', false, '0.1');
 			}
 
 			/* on activation */
@@ -132,7 +156,6 @@ if (!class_exists('WPFFPC')) {
 			/* on uninstall */
 			register_uninstall_hook(__FILE__ , array( $this , 'uninstall') );
 
-
 			/* init plugin in the admin section */
 			/* if multisite, admin page will be on network admin section */
 			if ( $this->network )
@@ -140,6 +163,13 @@ if (!class_exists('WPFFPC')) {
 			/* not network, will be in simple admin menu */
 			else
 				add_action('admin_menu', array( $this , 'admin_init') );
+
+			if ( $this->all_options['version'] < WP_FFPC_VERSION ) {
+				$this->save_settings ();
+				if ( @file_exists( WP_FFPC_ACACHE_MAIN_FILE )) {
+					$this->generate_config();
+				}
+			}
 		}
 
 		/**
@@ -147,6 +177,10 @@ if (!class_exists('WPFFPC')) {
 		 *
 		 */
 		function activate ( ) {
+
+			/* register options for first time */
+			add_site_option( WP_FFPC_PARAM, $this->options , '' , 'yes');
+
 			$this->save_settings( true );
 		}
 
@@ -155,19 +189,30 @@ if (!class_exists('WPFFPC')) {
 		 *
 		 */
 		function admin_init () {
-			/* register options */
-			add_site_option( WP_FFPC_PARAM, $this->options , '' , 'no');
-
 			/* save parameter updates, if there are any */
 			if ( isset($_POST[WP_FFPC_PARAM . '-save']) )
 			{
 				$this->save_settings ();
 				$this->status = 1;
-				header("Location: admin.php?page=" . WP_FFPC_OPTIONS_PAGE . "&saved=true");
+
+				header( "Location: ". $this->settingslink ."&saved=true" );
 			}
 
-			add_submenu_page('settings.php', 'Edit WP-FFPC options', __('WP-FFPC', WP_FFPC_PARAM ), 10, WP_FFPC_OPTIONS_PAGE , array ( $this , 'admin_panel' ) );
-			//add_menu_page('Edit WP-FFPC options', __('WP-FFPC', WP_FFPC_PARAM ), 10, WP_FFPC_OPTIONS_PAGE , array ( $this , 'admin_panel' ) );
+			/* save parameter updates, if there are any */
+			if ( isset($_POST[WP_FFPC_PARAM . '-delete']) )
+			{
+				$this->delete_options();
+				$this->status = 2;
+				header( "Location: ". $this->settingslink ."&deleted=true" );
+			}
+
+			if ( $this->network )
+				$optionspage = 'settings.php';
+			else
+				$optionspage = 'options-general.php';
+
+			/* we use settings menu, no need for highest level menu */
+			add_submenu_page( $optionspage, 'Edit WP-FFPC options', __('WP-FFPC', WP_FFPC_PARAM ), 10, WP_FFPC_OPTIONS_PAGE , array ( $this , 'admin_panel' ) );
 		}
 
 		/**
@@ -191,6 +236,13 @@ if (!class_exists('WPFFPC')) {
 			<?php endif;
 
 			/**
+			 * if options were saved
+			 */
+			if ($_GET['deleted']=='true' || $this->status == 2) : ?>
+				<div id='setting-error-options_deleted' class='error'><p><strong>Plugin options deleted.</strong></p></div>
+			<?php endif;
+
+			/**
 			 * the admin panel itself
 			 */
 			?>
@@ -203,27 +255,36 @@ if (!class_exists('WPFFPC')) {
 
 			<div class="wrap">
 
-			<h4>This plugin helped your business? <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC">Buy me a coffee for having it :)</a></h4>
+			<h4>This plugin helped your business? <a href="<?php echo WP_FFPC_DONATION_LINK; ?>">Buy me a coffee for having it, please :)</a></h4>
 
 			<?php if ( !WP_CACHE ) : ?>
-				<div class="updated settings-error"><p><strong><?php _e("WARNING: WP_CACHE is disabled, plugin will not work that way. Please add define( 'WP_CACHE', true ); into the beginning of wp-config.php", WP_FFPC_PARAM); ?></strong></p></div>
+				<div class="error"><p><strong><?php _e("WARNING: WP_CACHE is disabled, plugin will not work that way. Please add define( 'WP_CACHE', true ); into the beginning of wp-config.php", WP_FFPC_PARAM); ?></strong></p></div>
 			<?php endif; ?>
 
-			<?php if ( !class_exists('Memcache') && !class_exists('Memcached')  ) : ?>
-				<div class="updated settings-error"><p><strong><?php _e('No PHP memcached extension was found. To use memcached, you need PHP Memcache or PHP Memcached extension.', WP_FFPC_PARAM); ?></strong></p></div>
+			<?php if ( ! file_exists ( WP_FFPC_ACACHE_MAIN_FILE ) ): ?>
+				<div class="error"><p><strong><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", WP_FFPC_PARAM); ?></strong></p></div>
+			<?php endif; ?>
+
+			<?php if ( $this->options['cache_type'] == 'memcached' && !class_exists('Memcached') ) : ?>
+				<div class="error"><p><strong><?php _e('ERROR: Memcached cache backend activated but no PHP memcached extension was found.', WP_FFPC_PARAM); ?></strong></p></div>
+			<?php endif; ?>
+
+			<?php if ( $this->options['cache_type'] == 'memcache' && !class_exists('Memcache') ) : ?>
+				<div class="error"><p><strong><?php _e('ERROR: Memcache cache backend activated but no PHP memcache extension was found.', WP_FFPC_PARAM); ?></strong></p></div>
 			<?php endif; ?>
 
 			<?php
+				/* get the current runtime configuration for memcache in PHP */
 				$memcached_settings = ini_get_all( 'memcache' );
 				$memcached_protocol = strtolower($memcached_settings['memcache.protocol']['local_value']);
 			?>
 
-			<?php if ( $this->options['cache_type'] == 'memcached' && $memcached_protocol == 'binary' ) : ?>
-				<div class="updated settings-error"><p><strong><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work. Please consider to change either to ascii mode or to Mecached extension.', WP_FFPC_PARAM); ?></strong></p></div>
+			<?php if ( $this->options['cache_type'] == 'memcache' && $memcached_protocol == 'binary' ) : ?>
+				<div class="error"><p><strong><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work. Please consider to change either to ascii mode or to Mecached extension.', WP_FFPC_PARAM); ?></strong></p></div>
 			<?php endif; ?>
 
 			<?php if ( $this->options['cache_type'] == 'memcached' || $this->options['cache_type'] == 'memcache' ) : ?>
-				<div class="updated settings-error">
+				<div class="updated">
 					<p><strong>
 					<?php
 						_e ( 'Driver: ' , WP_FFPC_PARAM);
@@ -233,11 +294,16 @@ if (!class_exists('WPFFPC')) {
 					<p>
 					<?php
 						_e( '<strong>Backend status:</strong><br />', WP_FFPC_PARAM );
-						$init = wp_ffpc_init( $this->options);
+						$init = wp_ffpc_init( $this->options );
+						/* we need to go through all servers */
 						foreach ( $this->options['servers'] as $server_string => $server ) {
 							echo $server['host'] . ":" . $server['port'] ." => ";
-							$server_status = ( empty($init) || $init[$server_string] == 0 ) ? '<span class="error-msg">down</span>' : '<span class="ok-msg">up & running</span>' ;
-							echo $server_status ."<br />\n";
+							if ( is_array($init) && $init[$server_string] === false )
+								_e ( '<span class="error-msg">down</span><br />', WP_FFPC_PARAM );
+							elseif ( is_array($init) &&  $init[$server_string] === true )
+								_e ( '<span class="ok-msg">up & running</span><br />', WP_FFPC_PARAM );
+							else
+								_e ( '<span class="error-msg">unknown, please try re-saving settings!</span><br />', WP_FFPC_PARAM );
 						}
 					?>
 					</p>
@@ -475,7 +541,10 @@ if (!class_exists('WPFFPC')) {
 				<pre><?php echo $nginx; ?></pre>
 				</fieldset>
 
-				<p class="clearcolumns"><input class="button-primary" type="submit" name="<?php echo WP_FFPC_PARAM; ?>-save" id="<?php echo WP_FFPC_PARAM; ?>-save" value="Save Changes" /></p>
+				<p class="clearcolumns">
+					<input class="button-primary" type="submit" name="<?php echo WP_FFPC_PARAM; ?>-save" id="<?php echo WP_FFPC_PARAM; ?>-save" value="Save Changes" />
+					<input class="button-secondary" style="float: right" type="submit" name="<?php echo WP_FFPC_PARAM; ?>-delete" id="<?php echo WP_FFPC_PARAM; ?>-delete" value="Delete options from DB" />
+				</p>
 			</form>
 			<?php
 
@@ -512,12 +581,19 @@ if (!class_exists('WPFFPC')) {
 		 *
 		 */
 		function check_for_network( ) {
-			if ( is_multisite() ) {
-				$plugins = get_site_option( 'active_sitewide_plugins');
-				if ( isset($plugins['wp-ffpc/wp-ffpc.php']) ) {
-					$this->network = true;
-				}
+
+			$this->options_key = $_SERVER['HTTP_HOST'];
+
+			if ( is_plugin_active_for_network ( WP_FFPC_PLUGIN ) )
+			{
+				/* set active for network */
+				$this->network = true;
+				/* replace settings link */
+				$this->settingslink = str_replace( 'options-general.php' , 'settings.php' , $this->settingslink );
+				/* set options key */
+				$this->options_key = 'network';
 			}
+
 		}
 
 		/**
@@ -525,12 +601,26 @@ if (!class_exists('WPFFPC')) {
 		 *
 		 */
 		function deactivate ( ) {
-			if (@file_exists (WP_FFPC_ACACHE_MAIN_FILE))
-				@unlink (WP_FFPC_ACACHE_MAIN_FILE);
+			//if (@file_exists (WP_FFPC_ACACHE_MAIN_FILE))
+			//	@unlink (WP_FFPC_ACACHE_MAIN_FILE);
+			$this->save_settings( false, true );
+			//$this->generate_config ( true );
 		}
 
 		/**
+		 * delete options from database
+		 *
+		 */
+		 function delete_options () {
+			delete_site_option( WP_FFPC_PARAM );
+			wp_ffpc_log ( "plugin options deleted ");
+		 }
+
+		/**
 		 * invalidate cache
+		 *
+		 * @param $post_id
+		 * 	id of post to be removed from cache entries
 		 */
 		function invalidate ( $post_id ) {
 			wp_ffpc_clear ( $post_id );
@@ -561,10 +651,13 @@ if (!class_exists('WPFFPC')) {
 		}
 
 		/**
-		 * generates main advanced-cache system-wide config file
+		 * generates main advanced-cache config file
+		 *
+		 * @param $delete_current
+		 * 	deletes current config settings on deactivation
 		 *
 		 */
-		function generate_config() {
+		function generate_config( ) {
 
 			$acache = WP_FFPC_ACACHE_MAIN_FILE;
 			/* is file currently exists, delete it*/
@@ -575,10 +668,15 @@ if (!class_exists('WPFFPC')) {
 			if ( @file_exists( $acache ))
 				return false;
 
+			/* if no config left, don't create empty config */
+			if ( empty ( $this->all_options ) )
+				return false;
+
+			//if ( is_plugin_active_for_network ( WP_FFPC_PLUGIN ) && !is_plugin_active ( WP_FFPC_PLUGIN ) )
+			//	return false;
+
 			$string = '<?php'. "\n" . 'global '. WP_FFPC_CONFIG_VAR .";\n";
-
-			$string .= WP_FFPC_CONFIG_VAR .' = ' .var_export( $this->options , true ) . ';';
-
+			$string .= WP_FFPC_CONFIG_VAR .' = ' .var_export( $this->all_options , true ) . ';';
 			$string .= "\n\ninclude_once ('" . WP_FFPC_ACACHE_COMMON_FILE . "');\ninclude_once ('" . WP_FFPC_ACACHE_INC_FILE . "');\n";
 
 			file_put_contents($acache, $string);
@@ -599,7 +697,7 @@ if (!class_exists('WPFFPC')) {
 				'prefix_data' =>'data-',
 				'charset' => 'utf-8',
 				'pingback_status'=> false,
-				'debug' => true,
+				'debug' => false,
 				'syslog' => false,
 				'cache_type' => 'memcached',
 				'cache_loggedin' => false,
@@ -619,9 +717,29 @@ if (!class_exists('WPFFPC')) {
 
 			$this->defaults = $defaults;
 
-			$this->options = get_site_option( WP_FFPC_PARAM , $defaults, false );
+			/* maps saved options and defaults */
+			//$this->options = get_site_option( WP_FFPC_PARAM , $defaults, false );
 
-			$this->split_hosts();
+			$this->all_options = get_site_option( WP_FFPC_PARAM );
+
+			if ( ! empty ( $this->all_options[ $this->options_key ] ) )
+				$this->options = array_merge ( $defaults, $this->all_options[ $this->options_key ] );
+			else
+				$this->options = $defaults;
+
+			/* check for version number, if none, we're upgrading from 0.5, therefore we need to copy the settings and remove them after
+			   this will run once only at all
+			*/
+			if ( empty ( $this->all_options['version'] ) )
+			{
+				foreach ( array_keys( $defaults ) as $key ) {
+					if ( isset ( $this->all_options[$key] ) )
+					{
+						$this->options[$key] = $this->all_options[$key];
+						unset ( $this->all_options[$key] );
+					}
+				}
+			}
 
 		}
 
@@ -675,6 +793,13 @@ if (!class_exists('WPFFPC')) {
 
 		/**
 		 * function to be able to store redirects
+		 *
+		 * @param $redirect_url
+		 * 	url of required wordpress redirect
+		 *
+		 * @param $requested_url
+		 * 	currently unused
+		 *
 		 */
 		function redirect_canonical($redirect_url, $requested_url) {
 			global $wp_nmc_redirect;
@@ -685,43 +810,46 @@ if (!class_exists('WPFFPC')) {
 		/**
 		 * save settings function
 		 *
+		 * @param firstrun
+		 * 	boolean: true if the function is called on plugin activation
+		 *
 		 */
-		function save_settings ( $firstrun = false ) {
+		function save_settings ( $firstrun = false, $delete_current = false ) {
 
-			$defaults = $this->defaults;
+			if ( $delete_current )
+				unset ( $this->all_options[ $this->options_key ] );
+			else
+				$this->update_settings( $firstrun );
 
-			foreach ( $defaults as $key => $default )
-			{
-				if (!empty($_POST[$key]))
-				{
-					$update = $_POST[$key];
-					if ( strlen( $update ) !=0 && !is_numeric($update) )
-						$update = stripslashes($update);
-				}
-				elseif ( ( empty( $_POST[$name] ) && is_bool ( $default ) ) || is_int( $default ) )
-				{
-					$update = 0;
-				}
-				else
-				{
-					$update = $this->options[$key];
-				}
+			$this->all_options['version'] = WP_FFPC_VERSION;
 
-				$options[$key] = $update;
-			}
+			/* save options */
+			update_site_option( WP_FFPC_PARAM , $this->all_options );
 
-			$this->options = $options;
-			$this->split_hosts();
-
-			update_site_option( WP_FFPC_PARAM , $this->options );
-
+			/* invalidate cache, this is neccessary */
 			$this->invalidate('system_flush');
 
+			/* if it's not for the first run, generate the config file */
 			if ( ! $firstrun )
-				$this->generate_config();
+				$this->generate_config( );
 
 		}
 
+		/**
+		 *
+		 *
+		 */
+		function settings_link ( $links ) {
+			$settings_link = '<a href="' . $this->settingslink . '">' . __( 'Settings', WP_FFPC_PARAM ) . '</a>';
+			array_unshift( $links, $settings_link );
+			return $links;
+		}
+
+		/**
+		 * splits config parameter "hosts" into an array of server string, host and port
+		 * to be used in later config
+		 *
+		 */
 		function split_hosts ( ) {
 
 			$servers = explode( WP_FFPC_SERVER_LIST_SEPARATOR , $this->options['hosts']);
@@ -750,8 +878,46 @@ if (!class_exists('WPFFPC')) {
 		 */
 		function uninstall ( ) {
 			delete_site_option( WP_FFPC_PARAM );
+			wp_ffpc_log ( "plugin uninstalled ");
 		}
 
+
+		function update_settings ( $firstrun = false ) {
+			$options = $this->defaults;
+
+			/* only try to update defaults if it's not first run and $_POST is not empty */
+			if ( !$firstrun && !empty ( $_POST ) )
+			{
+				foreach ( $options as $key => $default )
+				{
+					/* $_POST element is available */
+					if (!empty($_POST[$key]))
+					{
+						$update = $_POST[$key];
+						/* get rid of slashed */
+						if ( strlen( $update ) !=0 &&!is_numeric($update) )
+							$update = stripslashes($update);
+
+						$options[$key] = $update;
+					}
+					/* empty $_POST element: when HTML form posted, empty checkboxes a 0 values will not be
+					  part of the $_POST array, thus we need to check if this is the situation by
+					  checking the types of the elements, since a missing value could mean update from 1 to 0
+					*/
+					elseif ( empty( $_POST[$key] ) && ( is_bool ( $default ) || is_int( $default ) ) )
+					{
+						$options[$key] = 0;
+					}
+				}
+			}
+
+			$this->options = $options;
+
+			/* set up server array from hosts config var */
+			$this->split_hosts();
+
+			$this->all_options[ $this->options_key ] = $this->options;
+		}
 	}
 }
 

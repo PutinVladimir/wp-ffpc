@@ -11,6 +11,14 @@ if ( !WP_CACHE )
 if (!isset($wp_ffpc_config))
 	return false;
 
+/* check if config is network active or active for this very site */
+if (!empty ( $wp_ffpc_config['network'] ) )
+	$wp_ffpc_config = $wp_ffpc_config['network'];
+elseif ( !empty ( $wp_ffpc_config[ $_SERVER['HTTP_HOST' ] ] ) )
+	$wp_ffpc_config = $wp_ffpc_config[ $_SERVER['HTTP_HOST' ] ];
+else
+	return false;
+
 /* request uri */
 $wp_ffpc_uri = $_SERVER['REQUEST_URI'];
 /* query string */
@@ -216,6 +224,7 @@ function wp_ffpc_callback($buffer) {
 	/* check if caching is disabled for page type */
 	$nocache_key = 'nocache_'. $wp_ffpc_meta['type'];
 
+	/* don't cache if prevented by rule, also, log it */
 	if ( $wp_ffpc_config[$nocache_key] == 1 ) {
 		wp_ffpc_log ( "not caching, prevented by settings for no-cache: " . $nocache_key );
 		return $buffer;
