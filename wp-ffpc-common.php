@@ -13,7 +13,7 @@ global $wp_nmc_redirect;
 if (!defined('WP_FFPC_PARAM'))
 	define ( 'WP_FFPC_PARAM' , 'wp-ffpc' );
 /* log level */
-define ('WP_FFPC_LOG_LEVEL' , LOG_INFO);
+define ('WP_FFPC_LOG_LEVEL' , LOG_WARNING );
 /* define log ending message */
 define ('WP_FFPC_LOG_TYPE_MSG' , '; cache type: '. $wp_ffpc_config['cache_type'] );
 
@@ -85,9 +85,13 @@ function wp_ffpc_init( $wp_ffpc_config ) {
 				$wp_ffpc_backend->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
 				$wp_ffpc_serverlist = $wp_ffpc_backend->getServerList();
 
-				if ( empty ( $wp_ffpc_serverlist ) )
+				if ( empty ( $wp_ffpc_serverlist ) && !empty ( $wp_ffpc_config['servers'] ) ) {
 					$wp_ffpc_backend->addServers( $wp_ffpc_config['servers'] );
 					wp_ffpc_log ( "servers added, persistent mode: " . $wp_ffpc_config['persistent'] );
+				}
+				elseif ( empty ( $wp_ffpc_config['servers'] ) ) {
+					wp_ffpc_log ( "not adding empty  set of servers, please check your settings!" );
+				}
 			}
 			$wp_ffpc_backend_report =  $wp_ffpc_backend->getStats();
 
@@ -103,7 +107,8 @@ function wp_ffpc_init( $wp_ffpc_config ) {
 		default:
 			return false;
 	}
-	return $wp_ffpc_backend_status;
+
+	return ( empty ( $wp_ffpc_backend_status ) ? false : $wp_ffpc_backend_status );
 }
 
 /**
