@@ -56,6 +56,15 @@ It's recommended to use Memcached instead of Memcache.
 = How to use the plugin on Amazon Linux? =
 You have to remove the default yum package, named `php-pecl-memcache` and install `Memcache` or `Memcached` through PECL.
 
+== Screenshots ==
+
+1. settings screen, cache type and basic settings
+2. debug and in depth-options
+3. cache exceptions
+4. apc settings
+5. memcached servers settings
+6. nginx example
+
 == Changelog ==
 
 = 0.6.1 =
