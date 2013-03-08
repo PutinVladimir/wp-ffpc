@@ -31,6 +31,7 @@ WP-FFPC is a full page cache plugin for WordPress. Supports memcached server or 
 (1) pingback hostname will always be generated from the accessed domain, otherwise speed would get highly compromised
 
 (2) Plugin is capable of either Network wide or per site settings, meaning if not network-wide enabled, settings could vary from site to site, plugin could be turned off and on without interfering other sites.
+**Only for subdomain ( or different domain) setup**, subdirectory setup is not yet supported!
 
 (3) nginx compatility means that if used with PHP Memcache or PHP Memcached extension, the created memcached entries can be read and served directly from nginx.
 If used with APC, this feature is not available (no APC module for nginx).
@@ -40,6 +41,7 @@ NOTE: some features ( most of additional HTTP headers for example, like pingback
 Parts are based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") plugin by Satollo (info@satollo.net).
 
 == Installation ==
+
 1. Upload contents of `wp-ffpc.zip` to the `/wp-content/plugins/` directory
 2. Enable WordPress cache by adding `define('WP_CACHE',true);` in wp-config.php
 3. Activate the plugin through the `Plugins` menu in WordPress ( site or Network wide )
