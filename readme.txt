@@ -34,6 +34,15 @@ A short configuration example is generated on the plugin settings page, under `N
 I provide support for the plugin as best as I can, but it comes without guarantee.
 Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic").
 
+= Requirements =
+* WordPress >= 3.0
+
+and **at least one** of the following for storage backend:
+* PHP APC
+* PHP Memcached >
+* PHP Memcache > 2.1.0
+
+
 Advanced cache file is based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") plugin by Satollo (info@satollo.net).
 
 == Installation ==

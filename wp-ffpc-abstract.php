@@ -52,7 +52,6 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		public $capability = 10;
 		const slug_save = '&saved=true';
 		const slug_delete = '&deleted=true';
-		public $loglevel = LOG_INFO;
 		public $debug = false;
 
 		/**
@@ -193,7 +192,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		/**
 		 * deletes saved options from database
 		 */
-		private function plugin_options_delete () {
+		protected function plugin_options_delete () {
 			delete_site_option( $this->plugin_constant );
 
 			/* additional moves */
@@ -208,7 +207,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		/**
 		 * reads options stored in database and reads merges them with default values
 		 */
-		private function plugin_options_read () {
+		protected function plugin_options_read () {
 			/* get the currently saved options */
 			$options = get_site_option( $this->plugin_constant );
 
@@ -236,7 +235,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * @param boolean $activating Tells the function if it's running in activation hook
 		 *
 		 */
-		private function plugin_options_update ( $activating ) {
+		protected function plugin_options_update ( $activating ) {
 			/* only try to update defaults if it's not activation hook, $_POST is not empty and the post
 			   is ours */
 			if ( !$activating && !empty ( $_POST ) && isset( $_POST[ $this->button_save ] ) )
@@ -289,7 +288,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 *
 		 * @return
 		 */
-		private function plugin_options_save ( $activating = false ) {
+		protected function plugin_options_save ( $activating = false ) {
 			/* try to update elements */
 			$this->plugin_settings_update ( $firstrun );
 
@@ -314,10 +313,28 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * @param string $message message to add besides basic info
 		 *
 		 */
-		private function _syslog ( $message ) {
-			/* debugging enabled  and syslog function is available */
-			if ( $this->debug == true && function_exists('syslog') )
-				syslog( $this->loglevel , $this->plugin_constant . ": " . $message );
+
+		protected function log ( $message, $log_level = LOG_INFO ) {
+
+			if ( @is_array( $message ) || @is_object ( $message ) )
+				$message = serialize($message);
+
+			if (! $this->config['log'] )
+				return false;
+
+			switch ( $log_level ) {
+				case LOG_ERR :
+					if ( function_exists( 'syslog' ) )
+						syslog( $log_level , self::plugin_constant . $message );
+					/* error level is real problem, needs to be displayed on the admin panel */
+					throw new Exception ( $message );
+				break;
+				default:
+					if ( function_exists( 'syslog' ) && $this->config['debug'] )
+						syslog( $log_level , self::plugin_constant . $message );
+				break;
+			}
+
 		}
 
 		/**
@@ -328,11 +345,64 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * @return string URL with correct protocol
 		 *
 		 */
-		private function replace_if_ssl ( $url ) {
+		protected function replace_if_ssl ( $url ) {
 			if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) )
 				$url = str_replace ( 'http://' , 'https://' , $url );
 
 			return $url;
+		}
+
+		/**
+		 * function to easily print a variable
+		 *
+		 * @param mixed $var Variable to dump
+		 * @param boolean $ret Return text instead of printing if true
+		 *
+		*/
+		private function print_var ( $var , $ret = false ) {
+			if ( @is_array ( $var ) || @is_object( $var ) || @is_bool( $var ) )
+				$var = var_export ( $var, true );
+
+			if ( $ret )
+				return $var;
+			else
+				echo $var;
+		}
+
+		/**
+		 * print value of an element from defaults array
+		 *
+		 * @param mixed $e Element index of $this->defaults array
+		 *
+		 */
+		private function print_default ( $e ) {
+			_e('Default : ', $this->plugin_constant);
+			print_var ( $this->defaults[ $e ] );
+		}
+
+		/**
+		 * select field processor
+		 *
+		 * @param sizes
+		 * 	array to build <option> values of
+		 *
+		 * @param $current
+		 * 	the current resize type
+		 *
+		 * @param $returntext
+		 * 	boolean: is true, the description will be returned of $current type
+		 *
+		 * @return
+		 * 	prints either description of $current
+		 * 	or option list for a <select> input field with $current set as active
+		 *
+		 */
+		private function print_select_options ( $elements, $current ) {
+			foreach ($elements as $value => $name ) : ?>
+				<option value="<?php echo $value ?>" <?php selected( $value , $current ); ?>>
+					<?php echo $name ; ?>
+				</option>
+			<?php endforeach;
 		}
 
 	}

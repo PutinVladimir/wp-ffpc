@@ -26,38 +26,30 @@ License: GPL2
 
 */
 
-		function get_options ( ) {
-			$defaults = array (
-				// TODO: unix socket?
-				'memcached_hosts'=>'127.0.0.1:11211',
+@include_once ( 'wp-ffpc-config.php' );
+include_once ( 'wp-ffpc-class.php' );
 
-				'expire'=>300,
-				'invalidation_method'=>0,
+$wp_ffpc_defaults = array (
+	'hosts'=>'127.0.0.1:11211',
+	'expire'=>300,
+	'invalidation_method'=>0,
+	'prefix_meta' =>'meta-',
+	'prefix_data' =>'data-',
+	'default_charset' => 'utf-8',
+	'log_info' => false,
+	'log' => true,
+	'cache_type' => 'memcached',
+	'cache_loggedin' => false,
+	'nocache_home' => false,
+	'nocache_feed' => false,
+	'nocache_archive' => false,
+	'nocache_single' => false,
+	'nocache_page' => false,
+	'sync_protocols' => false,
+	'persistent' => false,
+	'response_header' => false,
+);
 
-				'prefix_meta' =>'meta-',
-				'prefix_data' =>'data-',
 
-				'default_charset' => 'utf-8',
-
-				'pingback'=> false,
-
-				'log_info' => false,
-				'log' => true,
-
-
-				'cache_type' => 'memcached',
-
-				'cache_loggedin' => false,
-				'nocache_home' => false,
-				'nocache_feed' => false,
-				'nocache_archive' => false,
-				'nocache_single' => false,
-				'nocache_page' => false,
-
-				'sync_protocols' => false,
-				'persistent' => false,
-
-				'response_header' = false,
-			);
 
 ?>

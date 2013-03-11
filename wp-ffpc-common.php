@@ -28,7 +28,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 		const host_separator  = ':';
 		private $key_prefixes = array ( 'meta', 'data' );
 
-		private $connection;
+		private $connection = NULL;
 		private $config;
 		private $alive = false;
 		public $status;
@@ -41,13 +41,11 @@ if (!class_exists('WP_FFPC_Backend')) {
 		*/
 		protected function __construct( $config = array() , $key = '' ) {
 
-			if ( !empty ( $config ) )
-			{
+			if ( !empty ( $config ) ) {
 				$this->config = empty( $key ) ? $config : $config[ $key ];
 			}
 			/* 	in case of missing passed config array, use global */
-			else
-			{
+			else {
 				global $wp_ffpc_config;
 
 				$key = empty( $key ) ? $_SERVER['HTTP_HOST'] : $key;
@@ -61,8 +59,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 				/* no config was found for key */
 			}
 
-			if ( empty ( $this->config ) )
-			{
+			if ( empty ( $this->config ) ) {
 				$this->log ( __( 'configuration is empty, exiting constructor', self::plugin_constant ) );
 				return false;
 			}
@@ -95,9 +92,8 @@ if (!class_exists('WP_FFPC_Backend')) {
 			$internal = $this->proxy( 'get' );
 			$result = $this->$internal( $key );
 
-			/* check result validity */
-			//if ( $result === false )
-			//	$this->log ( __( "error when trying to get entry: ", self::plugin_constant ) . $key );
+			if ( $result === false  )
+				$this->log ( __( "failed to get entry: ", self::plugin_constant ) . $key );
 
 			return $result;
 		}
@@ -140,15 +136,13 @@ if (!class_exists('WP_FFPC_Backend')) {
 				return false;
 
 			/* exit if no post_id is specified */
-			if ( empty ( $post_id ) && $this->config['invalidation_method'] != 0)
-			{
+			if ( empty ( $post_id ) && $this->config['invalidation_method'] != 0) {
 				$this->log ( __('not clearing unidentified post ', self::plugin_constant ), LOG_WARNING );
 				return false;
 			}
 
 			/* if invalidation method is set to full, flush cache */
-			if ( $this->config['invalidation_method'] === 0 )
-			{
+			if ( $this->config['invalidation_method'] === 0 ) {
 				/* log action */
 				$this->log ( __('flushing cache', self::plugin_constant ) );
 
@@ -170,8 +164,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 			$path = substr ( get_permalink( $post_id ) , 7 );
 
 			/* no path, don't do anything */
-			if ( empty( $path ) )
-			{
+			if ( empty( $path ) ) {
 				$this->log ( __('unable to determine path from Post Permalink, post ID: ', self::plugin_constant ) . $post_id , LOG_WARNING );
 				return false;
 			}
@@ -195,7 +188,9 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		 */
 		public function status () {
-			if ( ! $this->alive )
+
+			/* look for backend aliveness, exit on inactive backend */
+			if ( ! $this->is_alive() )
 				return false;
 
 			$internal = $this->proxy ( 'status' );
@@ -217,8 +212,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		 */
 		private function is_alive() {
-			if ( ! $this->alive )
-			{
+			if ( ! $this->alive ) {
 				$this->log ( __("backend is not active, exiting function ", self::plugin_constant ) . __FUNCTION__, LOG_WARNING );
 				return false;
 			}
@@ -278,10 +272,6 @@ if (!class_exists('WP_FFPC_Backend')) {
 					/* error level is real problem, needs to be displayed on the admin panel */
 					throw new Exception ( $message );
 				break;
-				case LOG_WARNING:
-					if ( function_exists( 'syslog' ) )
-						syslog( $log_level , self::plugin_constant . " with " . $this->config['cache_type'] . ' ' . $message );
-				break;
 				default:
 					if ( function_exists( 'syslog' ) && $this->config['debug'] )
 						syslog( $log_level , self::plugin_constant . " with " . $this->config['cache_type'] . ' ' . $message );
@@ -297,15 +287,13 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 */
 		private function apc_init () {
 			/* verify apc functions exist, apc extension is loaded */
-			if ( ! function_exists( 'apc_sma_info' ) )
-			{
+			if ( ! function_exists( 'apc_sma_info' ) ) {
 				$this->log ( __('APC extension missing', self::plugin_constant ) );
 				return false;
 			}
 
 			/* verify apc is working */
-			if ( apc_sma_info() )
-			{
+			if ( apc_sma_info() ) {
 				$this->log ( __('backend OK', self::plugin_constant ) );
 				$this->alive = true;
 			}
@@ -367,41 +355,37 @@ if (!class_exists('WP_FFPC_Backend')) {
 				$keys = array ( $keys );
 
 			foreach ( $keys as $key ) {
-				if ( ! apc_delete ( $key ) )
-				{
+				if ( ! apc_delete ( $key ) ) {
 					$this->log ( __('Failed to delete APC entry: ', self::plugin_constant ) . $key, LOG_ERR );
 					//throw new Exception ( __('Deleting APC entry failed with key ', self::plugin_constant ) . $key );
 				}
-				else
-				{
+				else {
 					$this->log ( __( 'APC entry delete: ', self::plugin_constant ) . $key );
 				}
 			}
 		}
 
 		/*********************** END APC FUNCTIONS ***********************/
+
 		/*********************** MEMCACHED FUNCTIONS ***********************/
 		/**
 		 * init memcached backend
 		 */
 		private function memcached_init () {
 			/* Memcached class does not exist, Memcached extension is not available */
-			if (!class_exists('Memcached'))
-			{
+			if (!class_exists('Memcached')) {
 				$this->log ( __(' Memcached extension missing', self::plugin_constant ), LOG_ERR );
 				return false;
 			}
 
 			/* check for existing server list, otherwise we cannot add backends */
-			if ( empty ( $this->config['servers'] ) && ! $this->alive )
-			{
+			if ( empty ( $this->config['servers'] ) && ! $this->alive ) {
 				$this->log ( __("Memcached servers list is empty, init failed", self::plugin_constant ), LOG_WARNING );
 				return false;
 			}
 
 			/* check is there's no backend connection yet */
-			if ( !$this->alive )
-			{
+			if ( $this->connection === NULL ) {
 				/* persistent backend needs an identifier */
 				if ( $this->config['persistent'] == '1' )
 					$this->connection = new Memcached( self::plugin_constant );
@@ -413,14 +397,18 @@ if (!class_exists('WP_FFPC_Backend')) {
 				$this->connection->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
 			}
 
+			/* check if initialization was success or not */
+			if ( $this->connection === NULL ) {
+				$this->log ( __( 'error initializing Memcached PHP extension, exiting', self::prefix ) );
+				return false;
+			}
+
 			/* check if we already have list of servers, only add server(s) if it's not already connected */
 			$servers_alive = array();
-			if ( !empty ( $this->status ) )
-			{
+			if ( !empty ( $this->status ) ) {
 				$servers_alive = $this->connection->getServerList();
 				/* create check array if backend servers are already connected */
-				if ( !empty ( $servers ) )
-				{
+				if ( !empty ( $servers ) ) {
 					foreach ( $servers_alive as $skey => $server ) {
 						$skey =  $server['host'] . ":" . $server['port'];
 						$servers_alive[ $skey ] = true;
@@ -434,8 +422,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 				$this->status[$server_id] = -1;
 
 				/* only add servers that does not exists already  in connection pool */
-				if ( !@array_key_exists($server_id , $servers_alive ) )
-				{
+				if ( !@array_key_exists($server_id , $servers_alive ) ) {
 					$this->connection->addServer( $server['host'], $server['port'] );
 					$this->log ( $server_id . __(" added, persistent mode: ", self::plugin_constant ) . $this->config['persistent'] );
 				}
@@ -451,11 +438,8 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		 */
 		private function memcached_status () {
-			if ( !$this->alive )
-				$this->status = false;
-
 			/* server status will be calculated by getting server stats */
-			$this->log ( __("checking Memcached server statuses", self::plugin_constant ));
+			$this->log ( __("checking server statuses", self::plugin_constant ));
 			/* get servers statistic from connection */
 			$report =  $this->connection->getStats();
 
@@ -463,8 +447,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 				/* reset server status to offline */
 				$this->status[$server_id] = 0;
 				/* if server uptime is not empty, it's most probably up & running */
-				if ( !empty($details['uptime']) )
-				{
+				if ( !empty($details['uptime']) ) {
 					$this->log ( $server_id . __(" server is up & running", self::plugin_constant ));
 					$this->status[$server_id] = 1;
 				}
@@ -478,13 +461,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		*/
 		private function memcached_get ( &$key ) {
-			if ( ! $result = $this->connection->get($key) )
-			{
-				$this->log ( __( "error when trying to get entry: ", self::plugin_constant ) . $key );
-				return false;
-			}
-
-			return true;
+			return $this->connection->get($key);
 		}
 
 		/**
@@ -495,17 +472,17 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		 */
 		private function memcached_set ( &$key, &$data ) {
-			/* if storing failed, return the error code */
-			if ( !$this->connection->set ( $key, $data , $this->config['expire']  ) ) {
+
+			$result = $this->connection->set ( $key, $data , $this->config['expire']  );
+
+			/* if storing failed, log the error code */
+			if ( $result === false ) {
 				$code = $this->connection->getResultCode();
-				$this->log ( __('Unable to store Memcached entry ', self::plugin_constant ) . $key . __( ', error code: ', self::plugin_constant ) . $code );
+				$this->log ( __('unable to set entry ', self::plugin_constant ) . $key . __( ', Memcached error code: ', self::plugin_constant ) . $code );
 				//throw new Exception ( __('Unable to store Memcached entry ', self::plugin_constant ) . $key . __( ', error code: ', self::plugin_constant ) . $code );
-				return $code;
 			}
-			else
-			{
-				return true;
-			}
+
+			return $result;
 		}
 
 		/**
@@ -513,59 +490,150 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 * Flush memcached entries
 		 */
 		private function memcached_flush ( ) {
-
-			if ( $this->connection->flush() )
-			{
-				$this->log ( __(' cache flushed', self::plugin_constant ) );
-				return true;
-			}
-			else
-			{
-				$this->log ( __(' failed to flush Memcached cache', self::plugin_constant ) );
-				return false;
-			}
-
+			return $this->connection->flush();
 		}
 
 
 		/**
 		 * Removes entry from Memcached or flushes Memcached storage
 		 *
-		 * @param mixed $key If no key is provided, flush entire storage otherwise only delete entry with key
+		 * @param mixed $keys String / array of string of keys to delete entries with
 		*/
-		private function memcached_clear ( $post_id = false ) {
-			/* system is configured for full flush, that's stronger */
-			if ( $wp_ffpc_config['invalidation_method'] === 0 )
-			{
-				apc_clear_cache('user');
-				$this->log ( __(' user cache flushed', self::plugin_constant ) );
+		private function memcached_clear ( $keys ) {
+
+			/* make an array if only one string is present, easier processing */
+			if ( !is_array ( $keys ) )
+				$keys = array ( $keys );
+
+			foreach ( $keys as $key ) {
+				$kresult = $this->connection->delete( $key );
+
+				if ( $kresult === false ) {
+					$code = $this->connection->getResultCode();
+					$this->log ( __('unable to delete entry ', self::plugin_constant ) . $key . __( ', Memcached error code: ', self::plugin_constant ) . $code );
+				}
+				else {
+					$this->log ( __( 'entry deleted: ', self::plugin_constant ) . $key );
+				}
 			}
-			/* delete only by key */
-			else
-			{
-				/* there's an additional entry for storing the "normal" keys with a post ID based key */
-				$key = $this->apc_get ( self::id_prefix . $post_id );
-				if ( !empty ( $key ) )
+		}
+		/*********************** END MEMCACHED FUNCTIONS ***********************/
+
+		/*********************** MEMCACHE FUNCTIONS ***********************/
+		/**
+		 * init memcache backend
+		 */
+		private function memcache_init () {
+			/* Memcached class does not exist, Memcache extension is not available */
+			if (!class_exists('Memcache')) {
+				$this->log ( __('PHP Memcache extension missing', self::plugin_constant ), LOG_ERR );
+				return false;
+			}
+
+			/* check for existing server list, otherwise we cannot add backends */
+			if ( empty ( $this->config['servers'] ) && ! $this->alive ) {
+				$this->log ( __("servers list is empty, init failed", self::plugin_constant ), LOG_WARNING );
+				return false;
+			}
+
+			/* check is there's no backend connection yet */
+			if ( $this->connection === NULL )
+				$this->connection = new Memcache();
+
+			/* check if initialization was success or not */
+			if ( $this->connection === NULL ) {
+				$this->log ( __( 'error initializing Memcache PHP extension, exiting', self::prefix ) );
+				return false;
+			}
+
+			/* adding servers */
+			foreach ( $this->config['servers'] as $server_id => $server ) {
+				/* reset server status to unknown */
+				if ( $this->config['persistent'] == '1' )
+					$this->status[$server_id] = $this->connection->pconnect ( $server['host'] , $server['port'] );
+				else
+					$this->status[$server_id] = $this->connection->connect ( $server['host'] , $server['port'] );
+
+				$this->log ( $server_id . __(" added, persistent mode: ", self::plugin_constant ) . $this->config['persistent'] );
+			}
+
+			/* backend is now alive */
+			$this->alive = true;
+			$this->memcache_status();
+		}
+
+		/**
+		 * check current backend alive status for Memcached
+		 *
+		 */
+		private function memcache_status () {
+			/* server status will be calculated by getting server stats */
+			$this->log ( __("checking server statuses", self::plugin_constant ));
+			/* get servers statistic from connection */
+			foreach ( $this->config['servers'] as $server_id => $server ) {
+				$this->status[$server_id] = $this->connection->getServerStatus( $server['host'], $server['port'] );
+				if ( $this->status[$server_id] == 0 )
+					$this->log ( $server_id . __(" server is down", self::plugin_constant ));
+				else
+					$this->log ( $server_id . __(" server is up & running", self::plugin_constant ));
+			}
+		}
+
+		/**
+		 * get function for Memcached backend
+		 *
+		 * @param string $key Key to get values for
+		 *
+		*/
+		private function memcache_get ( &$key ) {
+			return $this->connection->get($key);
+		}
+
+		/**
+		 * Set function for Memcached backend
+		 *
+		 * @param string $key Key to set with
+		 * @param mixed $data Data to set
+		 *
+		 */
+		private function memcache_set ( &$key, &$data ) {
+			$result = $this->connection->set ( $key, $data , 0 , $this->config['expire'] );
+			return $result;
+		}
+
+		/**
+		 *
+		 * Flush memcached entries
+		 */
+		private function memcache_flush ( ) {
+			return $this->connection->flush();
+		}
+
+
+		/**
+		 * Removes entry from Memcached or flushes Memcached storage
+		 *
+		 * @param mixed $keys String / array of string of keys to delete entries with
+		*/
+		private function memcache_clear ( $keys ) {
+			/* make an array if only one string is present, easier processing */
+			if ( !is_array ( $keys ) )
+				$keys = array ( $keys );
+
+			foreach ( $keys as $key ) {
+				$kresult = $this->connection->delete( $key );
+
+				if ( $kresult === false )
 				{
-					$todo = array ( 'meta', 'data' );
-					foreach ( $todo as $prefix ) {
-						$e = $this->config['prefix-' . $prefix ] . $key;
-						if ( ! apc_delete ( $meta ) )
-							throw new Exception ( __('Deleting APC entry failed with key ', self::plugin_constant ) . $key );
-						else
-							$this->log ( __( 'delete APC entry with key: ', self::plugin_constant ) . $key );
-					}
+					$this->log ( __('unable to delete entry ', self::plugin_constant ) . $key );
 				}
 				else
 				{
-					/* this is not a critical error, although could mean problems */
-					$this->log ( __( 'Requested key not found, nothing was invalidated!' , self::plugin_constant ) );
+					$this->log ( __( 'entry deleted: ', self::plugin_constant ) . $key );
 				}
 			}
 		}
 
-		/*********************** END MEMCACHED FUNCTIONS ***********************/
-		/*********************** MEMCACHE FUNCTIONS ***********************/
 		/*********************** END MEMCACHE FUNCTIONS ***********************/
 
 	}
