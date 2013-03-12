@@ -2,10 +2,10 @@
 
 if ( ! class_exists( 'WP_FFPC' ) ) {
 
-	/* get the common functions */
+	/* get the plugin abstract class*/
 	include_once ( $this->plugin_constant . '-abstract.php');
+	/* get the common functions class*/
 	include_once ( $this->plugin_constant . '-common.php');
-
 
 	/**
 	 * main wp-ffpc class
@@ -15,12 +15,16 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 	 * @var string $acache The WordPress standard advanced cache location
 	 * @var array $select_cache_type Possible cache types array
 	 * @var array $select_invalidation_method Possible invalidation methods array
+	 * @var string $nginx_sample Nginx example config file location
 	 *
 	 */
 	class WP_FFPC extends WP_Plugins_Abstract {
+		private $global_config = '$wp-ffpc-config';
 		private $acache_config = '';
 		private $acache_worker = '';
 		private $acache = '';
+		private $nginx_sample = '';
+
 
 		private $select_cache_type = array ();
 		private $select_invalidation_method = array ();
@@ -32,6 +36,8 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			$this->acache_config = $this->plugin_dir . $this->plugin_constant . '-config.php';
 			$this->acache_worker = $this->plugin_dir . $this->plugin_constant . '-acahce.php';
 			$this->acache = ABSPATH . 'wp-content/advanced-cache.php';
+			$this->nginx_sample = $this->plugin_dir . '/nginx-sample.conf';
+
 
 			$this->select_cache_type = array (
 				'apc' => __( 'APC' , $this->plugin_constant ),
@@ -43,7 +49,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				0 => __( 'flush cache' , $this->plugin_constant ),
 				1 => __( 'only modified post' , $this->plugin_constant ),
 			);
-
 		}
 
 		/**
@@ -69,7 +74,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/* delete advanced-cache.php file */
 			unlink ( $this->acache );
 			/* delete site settings */
-			delete_site_option( $this->plugin_constant );
+			$this->plugin_options_delete ();
 		}
 
 		/**
@@ -145,6 +150,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				<?php $this->backend = new WP_FFPC_Backend ( $this->options ); ?>
 				<p><strong><?php _e ( 'Driver: ' , $this->plugin_constant); echo $this->options['cache_type']; ?></strong></p>
 				<?php
+					/* only display backend status if memcache-like extension is running */
 					if ( strstr ( $this->options['cache_type'], 'memcache') ) :
 						?><p><?php
 						_e( '<strong>Backend status:</strong><br />', $this->plugin_constant );
@@ -197,7 +203,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dt>
 					<dd>
 						<input type="number" name="expire" id="expire" value="<?php echo $this->options['expire']; ?>" />
-						<span class="description"><?php _e('Sets validity of entry in milliseconds', $this->plugin_constant); ?></span>
+						<span class="description"><?php _e('Sets validity time of entry in milliseconds', $this->plugin_constant); ?></span>
 						<span class="default"><?php print_default ( 'expire' ); ?></span>
 					</dd>
 
@@ -365,25 +371,21 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 				<fieldset id="<?php echo $this->plugin_constant ?>-nginx">
 				<legend><?php _e('Sample config for nginx to utilize the data entries', $this->plugin_constant); ?></legend>
-				<?php
-				?>
-				<pre><?php echo $nginx; ?></pre>
+				<pre><?php echo $this->nginx_example(); ?></pre>
 				</fieldset>
 
-				<p class="clearcolumns">
-					<input class="button-primary" type="submit" name="<?php echo $this->plugin_constant; ?>-save" id="<?php echo $this->plugin_constant; ?>-save" value="Save Changes" />
-					<input class="button-secondary" style="float: right" type="submit" name="<?php echo $this->plugin_constant; ?>-delete" id="<?php echo $this->plugin_constant; ?>-delete" value="Delete options from DB" />
+				<p>
+					<input class="button-primary" type="submit" name="<?php echo $this->button_save ?>" id="<?php echo $this->button_save ?>" value="<?php _e('Save Changes', $this->plugin_constant ) ?>" />
+					<input class="button-secondary" style="float: right" type="button" name="<?php echo $this->button_delete ?>" id="<?php echo $this->button_delete ?>" value="<?php _e('Delete options from DB', $this->plugin_constant ) ?>" />
 				</p>
+
 			</form>
 			<?php
 		}
 
-		private function update_acache( $remove_site = false ) {
-
-		}
-
-
 		private function nginx_example () {
+			$nginx = file_get_contents ( $this->nginx_sample );
+
 			$loggedin = '# avoid cache for logged in users
 				if ($http_cookie ~* "comment_author_|wordpressuser_|wp-postpass_" ) {
 					set $memcached_request 0;
@@ -391,7 +393,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			$search = array( 'DATAPREFIX', 'MEMCACHEDHOST', 'MEMCACHEDPORT' );
 			$replace = array ( $this->options['prefix_data'], $this->options['host'], $this->options['port'] );
-			$nginx = file_get_contents ( WP_FFPC_DIR .'/nginx-sample.conf' );
+
 			$nginx = str_replace ( $search , $replace , $nginx );
 
 			/* set upstream servers */
@@ -407,6 +409,38 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , '' , $nginx );
 
 
+			return $nginx;
+		}
+
+		private function plugin_hook_options_save( $activating ) {
+			if ( $activating )
+				$this->deploy_acache();
+
+			$this->update_acache_config();
+		}
+
+		private function plugin_hook_options_update () {
+
+		}
+
+		private function deploy_acache( ) {
+			/* in case advanced-cache.php was already there, remove it */
+			if ( @file_exists( $this->acache ))
+				unlink ($this->acache);
+
+			/* is deletion was unsuccessful, die, we have no rights to do that */
+			if ( @file_exists( $this->acache ))
+				return false;
+			$string[] = "<?php";
+			$string[] = 'global '. $this->global_config . ';';
+			$string[] .= "include_once ('" . $this->acache_config . "');";
+			$string[] .= "include_once ('" . $this->acache_worker . "');";
+
+			return file_put_contents( $this->acache, join( "\n" , $string ) );
+		}
+
+		private function update_acache_config ( $remove_site = false ) {
+			global $$this->global_config;
 
 		}
 	}

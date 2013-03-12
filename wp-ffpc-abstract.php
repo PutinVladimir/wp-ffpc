@@ -63,7 +63,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		* @param string $donation_link Donation link of plugin
 		*
 		*/
-		protected function __construct( $plugin_constant, $plugin_version, $plugin_name, $defaults, $donation_link ) {
+		private function __construct( $plugin_constant, $plugin_version, $plugin_name, $defaults, $donation_link ) {
 
 			$this->plugin_constant = $plugin_constant;
 			$this->plugin_url = $this->replace_if_ssl ( get_option( 'siteurl' ) ) . '/wp-content/plugins/' . $this->plugin_constant . '/';
@@ -143,17 +143,17 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		/**
 		 * activation hook function, to be extended
 		 */
-		abstract public function plugin_activate();
+		abstract function plugin_activate();
 
 		/**
 		 * deactivation hook function, to be extended
 		 */
-		abstract public function plugin_deactivate ();
+		abstract function plugin_deactivate ();
 
 		/**
 		 * uninstall hook function, to be extended
 		 */
-		abstract public function plugin_uninstall();
+		abstract function plugin_uninstall();
 
 		/**
 		 * init hook function, to be extended, runs before admin panel hook & theming activated
@@ -168,7 +168,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		/**
 		 * admin init: save/delete setting, add admin panel call hook
 		 */
-		protected function plugin_admin_init() {
+		private function plugin_admin_init() {
 
 			/* save parameter updates, if there are any */
 			if ( isset( $_POST[ $this->button_save ] ) )
@@ -192,7 +192,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		/**
 		 * deletes saved options from database
 		 */
-		protected function plugin_options_delete () {
+		private function plugin_options_delete () {
 			delete_site_option( $this->plugin_constant );
 
 			/* additional moves */
@@ -207,7 +207,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		/**
 		 * reads options stored in database and reads merges them with default values
 		 */
-		protected function plugin_options_read () {
+		private function plugin_options_read () {
 			/* get the currently saved options */
 			$options = get_site_option( $this->plugin_constant );
 
@@ -230,12 +230,14 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		abstract function plugin_hook_options_read ();
 
 		/**
-		 * updates options based on $_POST
+		 * used on update and to save current options to database
 		 *
-		 * @param boolean $activating Tells the function if it's running in activation hook
+		 * @param boolean $activating [optional] true on activation hook
 		 *
+		 * @return
 		 */
-		protected function plugin_options_update ( $activating ) {
+		private function plugin_options_save ( $activating = false ) {
+
 			/* only try to update defaults if it's not activation hook, $_POST is not empty and the post
 			   is ours */
 			if ( !$activating && !empty ( $_POST ) && isset( $_POST[ $this->button_save ] ) )
@@ -271,41 +273,20 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				$this->options = $options;
 			}
 
-
-			/* call hook function for additional moves */
-			$this->plugin_hook_options_update();
-		}
-
-		/**
-		 * hook to add functionality into plugin_options_update
-		 */
-		abstract function plugin_hook_options_update ();
-
-		/**
-		 * save current options to database
-		 *
-		 * @param boolean $activating [optional] true on activation hook
-		 *
-		 * @return
-		 */
-		protected function plugin_options_save ( $activating = false ) {
-			/* try to update elements */
-			$this->plugin_settings_update ( $firstrun );
-
 			/* set plugin version */
 			$this->options['version'] = $this->plugin_version;
 
 			/* call hook function for additional moves before saving the values */
-			$this->plugin_hook_options_save();
+			$this->plugin_hook_options_save( $activating );
 
 			/* save options to database */
-			update_site_option( $this->plugin_constant , $this->all_options );
+			update_site_option( $this->plugin_constant , $this->options );
 		}
 
 		/**
 		 * hook to add functionality into plugin_options_save
 		 */
-		abstract function plugin_hook_options_save ();
+		abstract function plugin_hook_options_save ( $activating );
 
 		/**
 		 * sends message to sysog
@@ -314,7 +295,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 *
 		 */
 
-		protected function log ( $message, $log_level = LOG_INFO ) {
+		private function log ( $message, $log_level = LOG_INFO ) {
 
 			if ( @is_array( $message ) || @is_object ( $message ) )
 				$message = serialize($message);
@@ -345,7 +326,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * @return string URL with correct protocol
 		 *
 		 */
-		protected function replace_if_ssl ( $url ) {
+		private function replace_if_ssl ( $url ) {
 			if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) )
 				$url = str_replace ( 'http://' , 'https://' , $url );
 
