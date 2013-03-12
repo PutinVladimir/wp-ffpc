@@ -83,13 +83,11 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
 
 			/* check if plugin is network-activated */
-			if ( @is_plugin_active_for_network ( $this->plugin_file ) )
-			{
+			if ( @is_plugin_active_for_network ( $this->plugin_file ) ) {
 				$this->network = true;
 				$this->settings_slug = 'settings.php';
 			}
-			else
-			{
+			else {
 				$this->settings_slug = 'options-general.php';
 			}
 
@@ -107,8 +105,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			$this->plugin_init();
 
 			/* add admin styling */
-			if( is_admin() )
-			{
+			if( is_admin() ) {
 				/* jquery ui tabs is provided by WordPress */
 				wp_enqueue_script ( "jquery-ui-tabs" );
 
@@ -171,16 +168,14 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		public function plugin_admin_init() {
 
 			/* save parameter updates, if there are any */
-			if ( isset( $_POST[ $this->button_save ] ) )
-			{
+			if ( isset( $_POST[ $this->button_save ] ) ) {
 				$this->plugin_options_save();
 				$this->status = 1;
 				header( "Location: ". $this->settings_link . self::slug_save );
 			}
 
 			/* save parameter updates, if there are any */
-			if ( isset( $_POST[ $this->button_delete ] ) )
-			{
+			if ( isset( $_POST[ $this->button_delete ] ) ) {
 				$this->plugin_options_delete();
 				$this->status = 2;
 				header( "Location: ". $this->settings_link . self::slug_delete );
@@ -253,16 +248,14 @@ if (!class_exists('WP_Plugins_Abstract')) {
 
 			/* only try to update defaults if it's not activation hook, $_POST is not empty and the post
 			   is ours */
-			if ( !$activating && !empty ( $_POST ) && isset( $_POST[ $this->button_save ] ) )
-			{
+			if ( !$activating && !empty ( $_POST ) && isset( $_POST[ $this->button_save ] ) ) {
 				/* we'll only update those that exist in the defaults array */
 				$options = $this->defaults;
 
 				foreach ( $options as $key => $default )
 				{
 					/* $_POST element is available */
-					if ( !empty( $_POST[$key] ) )
-					{
+					if ( !empty( $_POST[$key] ) ) {
 						$update = $_POST[$key];
 
 						/* get rid of slashes in strings, just in case */
@@ -276,8 +269,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 					   if this is the situation by checking the types of the elements,
 					   since a missing value means update from an integer to 0
 					*/
-					elseif ( empty( $_POST[$key] ) && ( is_bool ( $default ) || is_int( $default ) ) )
-					{
+					elseif ( empty( $_POST[$key] ) && ( is_bool ( $default ) || is_int( $default ) ) ) {
 						$options[$key] = 0;
 					}
 				}

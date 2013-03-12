@@ -5,7 +5,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 	/* get the plugin abstract class*/
 	include_once ( 'wp-ffpc-abstract.php');
 	/* get the common functions class*/
-	include_once ( 'wp-ffpc-common.php');
+	include_once ( 'wp-ffpc-backend.php');
 
 	/**
 	 * main wp-ffpc class
@@ -19,13 +19,14 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 	 *
 	 */
 	class WP_FFPC extends WP_Plugins_Abstract {
-		private $global_config_name = '$wp-ffpc-config';
-		private $config_key = '';
+		private $global_config_var = '$wp_ffpc_config';
+		private $global_config_key = '';
 		private $global_config = array();
 		private $acache_config = '';
 		private $acache_worker = '';
 		private $acache = '';
 		private $nginx_sample = '';
+		private $acache_common = '';
 
 
 		private $select_cache_type = array ();
@@ -36,14 +37,15 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 */
 		public function plugin_init() {
 			$this->acache_config = $this->plugin_dir . $this->plugin_constant . '-config.php';
-			$this->acache_worker = $this->plugin_dir . $this->plugin_constant . '-acahce.php';
+			$this->acache_worker = $this->plugin_dir . $this->plugin_constant . '-acache.php';
 			$this->acache = ABSPATH . 'wp-content/advanced-cache.php';
-			$this->nginx_sample = $this->plugin_dir . '/wp-ffpc-nginx-sample.conf';
+			$this->nginx_sample = $this->plugin_dir . $this->plugin_constant . '-nginx-sample.conf';
+			$this->acache_common = $this->plugin_dir . $this->plugin_constant . '-common.php';
 
 			if ( $this->network )
-				$this->config_key = 'network';
+				$this->global_config_key = 'network';
 			else
-				$this->config_key = $_SERVER['HTTP_HOST'];
+				$this->global_config_key = $_SERVER['HTTP_HOST'];
 
 			$this->select_cache_type = array (
 				'apc' => __( 'APC' , $this->plugin_constant ),
@@ -441,21 +443,20 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				return false;
 
 			$string[] = "<?php";
-			$string[] = 'global '. $this->global_config_name . ';';
-			$string[] = $this->global_config_name .' = eval( file_get_contents ( "' . $this->acache_config . '" ) );';
-			//$string[] .= "include_once ('" . $this->acache_worker . "');";
+			$string[] = "include_once ('" . $this->acache_common . "');";
+			$string[] = "eval ( '". $this->global_config_var ." = ' . file_get_contents ( '" . $this->acache_config . "' ) . ';' );";
+			//$string[] = 'global '. $this->global_config_var . ';';
+			$string[] = "include_once ('" . $this->acache_worker . "');";
+
+			$string[] = "?>";
 
 			return file_put_contents( $this->acache, join( "\n" , $string ) );
 		}
 
 		private function update_acache_config ( $remove_site = false ) {
-			if ( file_exists ( $this->acache_config ) )
-				$this->global_config = eval( file_get_contents ( $this->acache_config ) );
-			else
-				$this->global_config = array();
 
-			$this->global_config[ $this->config_key ] = $this->options;
-
+			eval ( '$this->global_config = ' . file_get_contents ( $this->acache_config ) . ';' );
+			$this->global_config[ $this->global_config_key ] = $this->options;
 			return file_put_contents( $this->acache_config , var_export( $this->global_config , true ) );
 		}
 	}
