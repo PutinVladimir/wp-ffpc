@@ -27,10 +27,13 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		private $acache = '';
 		private $nginx_sample = '';
 		private $acache_common = '';
+		const host_separator  = ',';
+		const port_separator  = ':';
 
 
-		private $select_cache_type = array ();
-		private $select_invalidation_method = array ();
+
+		protected $select_cache_type = array ();
+		protected $select_invalidation_method = array ();
 
 		/**
 		 * init hook function runs before admin panel hook & themeing activated
@@ -168,9 +171,9 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 						foreach ( $servers as $server_string => $status ) {
 							echo $server_string ." => ";
 
-							if ( $status === false )
+							if ( $status == 0 )
 								_e ( '<span class="error-msg">down</span><br />', $this->plugin_constant );
-							elseif ( $status === true )
+							elseif ( $status == 1 )
 								_e ( '<span class="ok-msg">up & running</span><br />', $this->plugin_constant );
 							else
 								_e ( '<span class="error-msg">unknown, please try re-saving settings!</span><br />', $this->plugin_constant );
@@ -383,7 +386,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 				<p class="clear">
 					<input class="button-primary" type="submit" name="<?php echo $this->button_save ?>" id="<?php echo $this->button_save ?>" value="<?php _e('Save Changes', $this->plugin_constant ) ?>" />
-					<input class="button-secondary" style="float: right" type="button" name="<?php echo $this->button_delete ?>" id="<?php echo $this->button_delete ?>" value="<?php _e('Delete options from DB', $this->plugin_constant ) ?>" />
+					<input class="button-secondary" style="float: right" type="submit" name="<?php echo $this->button_delete ?>" id="<?php echo $this->button_delete ?>" value="<?php _e('Delete options from DB', $this->plugin_constant ) ?>" />
 				</p>
 
 			</form>
@@ -411,7 +414,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			//$nginx = str_replace ( 'MEMCACHED_SERVERS' , $nginx_servers , $nginx );
 
 			/* logged in cache */
-			if ( $this->config['cache_loggedin'])
+			if ( $this->options['cache_loggedin'])
 				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , $loggedin , $nginx );
 			else
 				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , '' , $nginx );
@@ -428,6 +431,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		}
 
 		public function plugin_hook_options_read( &$options ) {
+
 		}
 
 		public function plugin_hook_options_delete(  ) {
@@ -459,6 +463,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			$this->global_config[ $this->global_config_key ] = $this->options;
 			return file_put_contents( $this->acache_config , var_export( $this->global_config , true ) );
 		}
+
 	}
 }
 

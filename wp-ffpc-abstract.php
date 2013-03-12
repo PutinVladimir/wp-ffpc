@@ -363,7 +363,14 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 */
 		protected function print_default ( $e ) {
 			_e('Default : ', $this->plugin_constant);
-			$this->print_var ( $this->defaults[ $e ] );
+			$select = 'select_' . $e;
+			if ( @is_array ( $this->$select ) ) {
+				$x = $this->$select;
+				$this->print_var ( $x[ $this->defaults[ $e ] ] );
+			}
+			else {
+				$this->print_var ( $this->defaults[ $e ] );
+			}
 		}
 
 		/**

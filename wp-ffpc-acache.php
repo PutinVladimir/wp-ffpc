@@ -42,18 +42,6 @@ if ( function_exists('is_multisite') && stripos($wp_ffpc_uri, '/files/') )
 	if ( is_multisite() )
 		return false;
 
-/* no cache for logged in users */
-if (!$wp_ffpc_config['cache_loggedin']) {
-	foreach ($_COOKIE as $n=>$v) {
-		// test cookie makes to cache not work!!!
-		if ($n == 'wordpress_test_cookie') continue;
-		// wp 2.5 and wp 2.3 have different cookie prefix, skip cache if a post password cookie is present, also
-		if ( (substr($n, 0, 14) == 'wordpressuser_' || substr($n, 0, 10) == 'wordpress_' || substr($n, 0, 12) == 'wp-postpass_') && !$wp_ffpc_config['cache_loggedin'] ) {
-			return false;
-		}
-	}
-}
-
 /* check if config is network active: use network config */
 if (!empty ( $wp_ffpc_config['network'] ) )
 	$wp_ffpc_config = $wp_ffpc_config['network'];
@@ -64,6 +52,18 @@ elseif ( !empty ( $wp_ffpc_config[ $_SERVER['HTTP_HOST'] ] ) )
 else
 	return false;
 
+/* no cache for for logged in users normally, only if enabled */
+if ( $wp_ffpc_config['cache_loggedin'] == 0 ) {
+	foreach ($_COOKIE as $n=>$v) {
+		// test cookie makes to cache not work!!!
+		if ($n == 'wordpress_test_cookie') continue;
+		// wp 2.5 and wp 2.3 have different cookie prefix, skip cache if a post password cookie is present, also
+		if ( (substr($n, 0, 14) == 'wordpressuser_' || substr($n, 0, 10) == 'wordpress_' || substr($n, 0, 12) == 'wp-postpass_') && !$wp_ffpc_config['cache_loggedin'] ) {
+			return false;
+		}
+	}
+}
+
 $wp_ffpc_backend = new WP_FFPC_Backend( $wp_ffpc_config );
 
 if ( $wp_ffpc_backend->status() === false )
@@ -73,9 +73,7 @@ $wp_ffpc_keys = array ( 'meta', 'data' );
 $wp_ffpc_values = array();
 
 foreach ( $wp_ffpc_keys as $key ) {
-	$key = $wp_ffpc_backend->key ( $key );
-
-	$value = $wp_ffpc_backend->get ( $key );
+	$value = $wp_ffpc_backend->get ( $wp_ffpc_backend->key ( $key ) );
 
 	if ( ! $value )
 	{
@@ -165,7 +163,6 @@ function wp_ffpc_start( ) {
 function wp_ffpc_callback($buffer) {
 	global $wp_ffpc_config;
 	global $wp_ffpc_backend;
-	return false;
 
 	/* no is_home = error */
 	if (!function_exists('is_home'))
@@ -219,14 +216,6 @@ function wp_ffpc_callback($buffer) {
 	/* set mimetype */
 	$meta['mime'] = $meta['mime'] . $wp_ffpc_config['charset'];
 
-	/* get shortlink, if possible */
-	if (function_exists('wp_get_shortlink'))
-	{
-		$shortlink = wp_get_shortlink( );
-		if (!empty ( $shortlink ) )
-			$meta['shortlink'] = $shortlink;
-	}
-
 	/* try if post is available
 		if made with archieve, last listed post can make this go bad
 	*/
@@ -235,6 +224,14 @@ function wp_ffpc_callback($buffer) {
 	{
 		/* get last modification data */
 		$meta['lastmodified'] = strtotime ( $post->post_modified_gmt );
+
+		/* get shortlink, if possible */
+		if (function_exists('wp_get_shortlink'))
+		{
+			$shortlink = wp_get_shortlink( );
+			if (!empty ( $shortlink ) )
+				$meta['shortlink'] = $shortlink;
+		}
 	}
 
 	/* sync all http and https requests if enabled */

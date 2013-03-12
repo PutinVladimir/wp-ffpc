@@ -33,12 +33,12 @@ if (!class_exists('WP_FFPC_Backend')) {
 		const network_key = 'network';
 		const id_prefix = 'wp-ffpc-id-';
 		const prefix = 'prefix-';
-		const server_separator  = ';';
-		const host_separator  = ':';
+		const host_separator  = ',';
+		const port_separator  = ':';
 		private $key_prefixes = array ( 'meta', 'data' );
 
 		private $connection = NULL;
-		private $config;
+		private $options;
 		private $alive = false;
 		public $status;
 
@@ -50,9 +50,9 @@ if (!class_exists('WP_FFPC_Backend')) {
 		*/
 		public function __construct( $config ) {
 
-			$this->config = $config;
+			$this->options = $config;
 
-			if ( empty ( $this->config ) ) {
+			if ( empty ( $this->options ) ) {
 				return false;
 			}
 
@@ -120,10 +120,10 @@ if (!class_exists('WP_FFPC_Backend')) {
 				return false;
 
 			/* log the current action */
-			$this->log( wptranslate('set ', self::plugin_constant ) . $key . wptranslate(' expiration time: ', self::plugin_constant ) . $this->config['expire']);
+			$this->log( wptranslate('set ', self::plugin_constant ) . $key . wptranslate(' expiration time: ', self::plugin_constant ) . $this->options['expire']);
 
 			/* proxy to internal function */
-			$internal = $this->config['cache_type'] . '_set';
+			$internal = $this->options['cache_type'] . '_set';
 			$result = $this->$internal( $key, $data );
 
 			/* check result validity */
@@ -145,13 +145,13 @@ if (!class_exists('WP_FFPC_Backend')) {
 				return false;
 
 			/* exit if no post_id is specified */
-			if ( empty ( $post_id ) && $this->config['invalidation_method'] != 0) {
+			if ( empty ( $post_id ) && $this->options['invalidation_method'] != 0) {
 				$this->log ( wptranslate('not clearing unidentified post ', self::plugin_constant ), LOG_WARNING );
 				return false;
 			}
 
 			/* if invalidation method is set to full, flush cache */
-			if ( $this->config['invalidation_method'] === 0 ) {
+			if ( $this->options['invalidation_method'] === 0 ) {
 				/* log action */
 				$this->log ( wptranslate('flushing cache', self::plugin_constant ) );
 
@@ -184,8 +184,8 @@ if (!class_exists('WP_FFPC_Backend')) {
 				$protocol = 'http://';
 
 			$to_clear = array (
-				$this->config['prefix-meta'] . $protocol . $path,
-				$this->config['prefix-data'] . $protocol . $path,
+				$this->options['prefix-meta'] . $protocol . $path,
+				$this->options['prefix-data'] . $protocol . $path,
 			);
 
 			$internal = $this->proxy ( 'clear' );
@@ -211,7 +211,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		 */
 		private function proxy ( $method ) {
-			return $this->config['cache_type'] . '_' . $method;
+			return $this->options['cache_type'] . '_' . $method;
 		}
 
 		/**
@@ -235,26 +235,25 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		 */
 		private function set_servers () {
-			$servers = explode( self::server_separator , $this->config['hosts']);
-			$good_servers = array();
+			/* replace servers array in config according to hosts field */
+			$servers = explode( self::host_separator , $this->options['hosts']);
+
+			$options['servers'] = array();
 
 			foreach ( $servers as $snum => $sstring ) {
 
-				$separator = strpos( $sstring , self::host_separator );
+				$separator = strpos( $sstring , self::port_separator );
 				$host = substr( $sstring, 0, $separator );
 				$port = substr( $sstring, $separator + 1 );
 
 				/* IP server */
 				if ( !empty ( $host )  && !empty($port) && is_numeric($port) ) {
-					$good_servers[$sstring] = array (
+					$this->options['servers'][$sstring] = array (
 						'host' => $host,
 						'port' => $port
 					);
 				}
 			}
-
-			if ( !empty ( $good_servers ))
-				$this->config['servers'] = $good_servers;
 
 		}
 
@@ -264,24 +263,24 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 * @param mixed $message message to add besides basic info
 		 *
 		 */
-		public function log ( $message, $log_level = LOG_INFO ) {
+		public function log ( $message, $log_level = LOG_WARNING ) {
 
 			if ( @is_array( $message ) || @is_object ( $message ) )
 				$message = serialize($message);
 
-			if (! $this->config['log'] )
+			if (! $this->options['log'] )
 				return false;
 
 			switch ( $log_level ) {
 				case LOG_ERR :
 					if ( function_exists( 'syslog' ) )
-						syslog( $log_level , self::plugin_constant . " with " . $this->config['cache_type'] . ' ' . $message );
+						syslog( $log_level , self::plugin_constant . " with " . $this->options['cache_type'] . ' ' . $message );
 					/* error level is real problem, needs to be displayed on the admin panel */
 					throw new Exception ( $message );
 				break;
 				default:
-					if ( function_exists( 'syslog' ) && $this->config['debug'] )
-						syslog( $log_level , self::plugin_constant . " with " . $this->config['cache_type'] . ' ' . $message );
+					if ( function_exists( 'syslog' ) && $this->options['debug'] )
+						syslog( $log_level , self::plugin_constant . " with " . $this->options['cache_type'] . ' ' . $message );
 				break;
 			}
 
@@ -337,7 +336,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 * @return boolean APC store outcome
 		 */
 		private function apc_set (  &$key, &$data ) {
-			return apc_store( $key , $data , $this->config['expire'] );
+			return apc_store( $key , $data , $this->options['expire'] );
 		}
 
 
@@ -386,7 +385,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 			}
 
 			/* check for existing server list, otherwise we cannot add backends */
-			if ( empty ( $this->config['servers'] ) && ! $this->alive ) {
+			if ( empty ( $this->options['servers'] ) && ! $this->alive ) {
 				$this->log ( wptranslate("Memcached servers list is empty, init failed", self::plugin_constant ), LOG_WARNING );
 				return false;
 			}
@@ -394,14 +393,14 @@ if (!class_exists('WP_FFPC_Backend')) {
 			/* check is there's no backend connection yet */
 			if ( $this->connection === NULL ) {
 				/* persistent backend needs an identifier */
-				if ( $this->config['persistent'] == '1' )
+				if ( $this->options['persistent'] == '1' )
 					$this->connection = new Memcached( self::plugin_constant );
 				else
 					$this->connection = new Memcached();
 
 				/* use binary and not compressed format, good for nginx and still fast */
-				//$this->connection->setOption( Memcached::OPT_COMPRESSION , false );
-				//$this->connection->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
+				$this->connection->setOption( Memcached::OPT_COMPRESSION , false );
+				$this->connection->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
 			}
 
 			/* check if initialization was success or not */
@@ -424,14 +423,14 @@ if (!class_exists('WP_FFPC_Backend')) {
 			}
 
 			/* adding servers */
-			foreach ( $this->config['servers'] as $server_id => $server ) {
+			foreach ( $this->options['servers'] as $server_id => $server ) {
 				/* reset server status to unknown */
 				$this->status[$server_id] = -1;
 
 				/* only add servers that does not exists already  in connection pool */
 				if ( !@array_key_exists($server_id , $servers_alive ) ) {
 					$this->connection->addServer( $server['host'], $server['port'] );
-					$this->log ( $server_id . wptranslate(" added, persistent mode: ", self::plugin_constant ) . $this->config['persistent'] );
+					$this->log ( $server_id . wptranslate(" added, persistent mode: ", self::plugin_constant ) . $this->options['persistent'] );
 				}
 			}
 
@@ -459,6 +458,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 					$this->status[$server_id] = 1;
 				}
 			}
+
 		}
 
 		/**
@@ -468,9 +468,6 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		*/
 		private function memcached_get ( &$key ) {
-				$v = $this->connection->get($key);
-				print_r ( $v );
-				die('nye' );
 			return $this->connection->get($key);
 		}
 
@@ -482,8 +479,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		 */
 		private function memcached_set ( &$key, &$data ) {
-
-			$result = $this->connection->set ( $key, $data , $this->config['expire']  );
+			$result = $this->connection->set ( $key, $data , $this->options['expire']  );
 
 			/* if storing failed, log the error code */
 			if ( $result === false ) {
@@ -541,7 +537,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 			}
 
 			/* check for existing server list, otherwise we cannot add backends */
-			if ( empty ( $this->config['servers'] ) && ! $this->alive ) {
+			if ( empty ( $this->options['servers'] ) && ! $this->alive ) {
 				$this->log ( wptranslate("servers list is empty, init failed", self::plugin_constant ), LOG_WARNING );
 				return false;
 			}
@@ -557,14 +553,14 @@ if (!class_exists('WP_FFPC_Backend')) {
 			}
 
 			/* adding servers */
-			foreach ( $this->config['servers'] as $server_id => $server ) {
+			foreach ( $this->options['servers'] as $server_id => $server ) {
 				/* reset server status to unknown */
-				if ( $this->config['persistent'] == '1' )
+				if ( $this->options['persistent'] == '1' )
 					$this->status[$server_id] = $this->connection->pconnect ( $server['host'] , $server['port'] );
 				else
 					$this->status[$server_id] = $this->connection->connect ( $server['host'] , $server['port'] );
 
-				$this->log ( $server_id . wptranslate(" added, persistent mode: ", self::plugin_constant ) . $this->config['persistent'] );
+				$this->log ( $server_id . wptranslate(" added, persistent mode: ", self::plugin_constant ) . $this->options['persistent'] );
 			}
 
 			/* backend is now alive */
@@ -580,7 +576,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 			/* server status will be calculated by getting server stats */
 			$this->log ( wptranslate("checking server statuses", self::plugin_constant ));
 			/* get servers statistic from connection */
-			foreach ( $this->config['servers'] as $server_id => $server ) {
+			foreach ( $this->options['servers'] as $server_id => $server ) {
 				$this->status[$server_id] = $this->connection->getServerStatus( $server['host'], $server['port'] );
 				if ( $this->status[$server_id] == 0 )
 					$this->log ( $server_id . wptranslate(" server is down", self::plugin_constant ));
@@ -607,7 +603,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		 */
 		private function memcache_set ( &$key, &$data ) {
-			$result = $this->connection->set ( $key, $data , 0 , $this->config['expire'] );
+			$result = $this->connection->set ( $key, $data , 0 , $this->options['expire'] );
 			return $result;
 		}
 
