@@ -32,23 +32,23 @@ if (!class_exists('WP_Plugins_Abstract')) {
 	 */
 	abstract class WP_Plugins_Abstract {
 
-		private $plugin_constant;
-		private $options = array();
-		private $defaults = array();
-		private $status = 0;
-		private $network = false;
-		private $settings_link = '';
-		private $settings_slug = '';
-		private $plugin_url;
-		private $plugin_dir;
-		private $plugin_file;
-		private $plugin_name;
-		private $plugin_version;
-		private $plugin_option_group;
-		private $plugin_settings_page;
-		private $donation_link;
-		private $button_save;
-		private $button_delete;
+		protected $plugin_constant;
+		protected $options = array();
+		protected $defaults = array();
+		protected $status = 0;
+		protected $network = false;
+		protected $settings_link = '';
+		protected $settings_slug = '';
+		protected $plugin_url;
+		protected $plugin_dir;
+		protected $plugin_file;
+		protected $plugin_name;
+		protected $plugin_version;
+		protected $plugin_option_group;
+		protected $plugin_settings_page;
+		protected $donation_link;
+		protected $button_save;
+		protected $button_delete;
 		public $capability = 10;
 		const slug_save = '&saved=true';
 		const slug_delete = '&deleted=true';
@@ -63,7 +63,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		* @param string $donation_link Donation link of plugin
 		*
 		*/
-		private function __construct( $plugin_constant, $plugin_version, $plugin_name, $defaults, $donation_link ) {
+		public function __construct( $plugin_constant, $plugin_version, $plugin_name, $defaults, $donation_link ) {
 
 			$this->plugin_constant = $plugin_constant;
 			$this->plugin_url = $this->replace_if_ssl ( get_option( 'siteurl' ) ) . '/wp-content/plugins/' . $this->plugin_constant . '/';
@@ -72,8 +72,8 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			$this->plugin_version = $plugin_version;
 			$this->plugin_name = $plugin_name;
 			$this->defaults = $defaults;
-			$this->plugin_option_group = $this->plugin_constant .' -params';
-			$this->plugin_settings_page = $this->plugin_constant .' -settings';
+			$this->plugin_option_group = $this->plugin_constant .'-params';
+			$this->plugin_settings_page = $this->plugin_constant .'-settings';
 			$this->donation_link = $donation_link;
 			$this->button_save = $this->plugin_constant . '-save';
 			$this->button_delete = $this->plugin_constant . '-delete';
@@ -98,7 +98,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			/* register options on very first run
 			 * this will only register parameter once
 			 */
-			add_site_option( $this->plugin_constant );
+			//add_site_option( $this->plugin_constant, $this->defaults );
 
 			/* get the options */
 			$this->plugin_options_read();
@@ -114,7 +114,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 
 				/* additional admin styling */
 				$css_handle = $this->plugin_constant . '-admin-css';
-				$css_file = $this->plugin_constant . '.admin.css';
+				$css_file = $this->plugin_constant . '-admin.css';
 				if ( @file_exists ( $this->plugin_dir . $css_file ) )
 				{
 					$css_src = $this->plugin_url . $css_file;
@@ -129,15 +129,15 @@ if (!class_exists('WP_Plugins_Abstract')) {
 
 			/* register settings pages */
 			if ( $this->network )
-				add_filter( "network_admin_plugin_action_links_" . $this->plugin_file, array( $this, 'settings_link' ) );
+				add_filter( "network_admin_plugin_action_links_" . $this->plugin_file, array( $this, 'plugin_settings_link' ) );
 			else
-				add_filter( "plugin_action_links_" . $this->plugin_file, array( $this, 'settings_link' ) );
+				add_filter( "plugin_action_links_" . $this->plugin_file, array( $this, 'plugin_settings_link' ) );
 
 			/* register admin init */
 			if ( $this->network )
-				add_action('network_admin_menu', array( $this , 'plugin_admin') );
+				add_action('network_admin_menu', array( $this , 'plugin_admin_init') );
 			else
-				add_action('admin_menu', array( $this , 'plugin_admin') );
+				add_action('admin_menu', array( $this , 'plugin_admin_init') );
 		}
 
 		/**
@@ -168,7 +168,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		/**
 		 * admin init: save/delete setting, add admin panel call hook
 		 */
-		private function plugin_admin_init() {
+		public function plugin_admin_init() {
 
 			/* save parameter updates, if there are any */
 			if ( isset( $_POST[ $this->button_save ] ) )
@@ -186,13 +186,24 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				header( "Location: ". $this->settings_link . self::slug_delete );
 			}
 
-			add_submenu_page( $this->settings_slug, $this->plugin_name . __( ' options' , $this->plugin_constant ), $this->plugin_name, $this->capability, $this->plugin_settings_page, $function, array ( $this , 'plugin_admin_panel' ) );
+			add_submenu_page( $this->settings_slug, $this->plugin_name . __( ' options' , $this->plugin_constant ), $this->plugin_name, $this->capability, $this->plugin_settings_page, array ( $this , 'plugin_admin_panel' ) );
+		}
+
+		/**
+		 * add settings link to plugins page hook function
+		 *
+		 *
+		 */
+		public function plugin_settings_link ( $links ) {
+			$settings_link = '<a href="' . $this->settings_link . '">' . __( 'Settings', $this->plugin_constant ) . '</a>';
+			array_unshift( $links, $settings_link );
+			return $links;
 		}
 
 		/**
 		 * deletes saved options from database
 		 */
-		private function plugin_options_delete () {
+		protected function plugin_options_delete () {
 			delete_site_option( $this->plugin_constant );
 
 			/* additional moves */
@@ -207,27 +218,29 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		/**
 		 * reads options stored in database and reads merges them with default values
 		 */
-		private function plugin_options_read () {
+		protected function plugin_options_read () {
 			/* get the currently saved options */
 			$options = get_site_option( $this->plugin_constant );
 
 			/* map missing values from default */
 			foreach ( $this->defaults as $key => $default )
-				if ( !array_key_exists ( $key, $options ) )
+				if ( !@array_key_exists ( $key, $options ) )
 					$options[$key] = $default;
 
 			/* removed unused keys, rare, but possible */
 			foreach ( array_keys ( $options ) as $key )
-				if ( !array_key_exists( $key, $this->defaults ) )
+				if ( !@array_key_exists( $key, $this->defaults ) )
 					unset ( $options[$key] );
 
-			$this->plugin_hook_options_read();
+			$this->plugin_hook_options_read( $options );
+
+			$this->options = $options;
 		}
 
 		/**
 		 * hook to add functionality into plugin_options_read
 		 */
-		abstract function plugin_hook_options_read ();
+		abstract function plugin_hook_options_read ( &$options );
 
 		/**
 		 * used on update and to save current options to database
@@ -236,7 +249,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 *
 		 * @return
 		 */
-		private function plugin_options_save ( $activating = false ) {
+		protected function plugin_options_save ( $activating = false ) {
 
 			/* only try to update defaults if it's not activation hook, $_POST is not empty and the post
 			   is ours */
@@ -295,7 +308,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 *
 		 */
 
-		private function log ( $message, $log_level = LOG_INFO ) {
+		protected function log ( $message, $log_level = LOG_INFO ) {
 
 			if ( @is_array( $message ) || @is_object ( $message ) )
 				$message = serialize($message);
@@ -326,7 +339,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * @return string URL with correct protocol
 		 *
 		 */
-		private function replace_if_ssl ( $url ) {
+		protected function replace_if_ssl ( $url ) {
 			if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) )
 				$url = str_replace ( 'http://' , 'https://' , $url );
 
@@ -340,7 +353,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * @param boolean $ret Return text instead of printing if true
 		 *
 		*/
-		private function print_var ( $var , $ret = false ) {
+		protected function print_var ( $var , $ret = false ) {
 			if ( @is_array ( $var ) || @is_object( $var ) || @is_bool( $var ) )
 				$var = var_export ( $var, true );
 
@@ -356,9 +369,9 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * @param mixed $e Element index of $this->defaults array
 		 *
 		 */
-		private function print_default ( $e ) {
+		protected function print_default ( $e ) {
 			_e('Default : ', $this->plugin_constant);
-			print_var ( $this->defaults[ $e ] );
+			$this->print_var ( $this->defaults[ $e ] );
 		}
 
 		/**
@@ -378,7 +391,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * 	or option list for a <select> input field with $current set as active
 		 *
 		 */
-		private function print_select_options ( $elements, $current ) {
+		protected function print_select_options ( $elements, $current ) {
 			foreach ($elements as $value => $name ) : ?>
 				<option value="<?php echo $value ?>" <?php selected( $value , $current ); ?>>
 					<?php echo $name ; ?>

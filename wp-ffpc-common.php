@@ -39,7 +39,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 		* @param mixed $config Configuration options
 		*
 		*/
-		protected function __construct( $config = array() , $key = '' ) {
+		public function __construct( $config = array() , $key = '' ) {
 
 			if ( !empty ( $config ) ) {
 				$this->config = empty( $key ) ? $config : $config[ $key ];

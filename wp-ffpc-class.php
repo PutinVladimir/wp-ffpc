@@ -3,9 +3,9 @@
 if ( ! class_exists( 'WP_FFPC' ) ) {
 
 	/* get the plugin abstract class*/
-	include_once ( $this->plugin_constant . '-abstract.php');
+	include_once ( 'wp-ffpc-abstract.php');
 	/* get the common functions class*/
-	include_once ( $this->plugin_constant . '-common.php');
+	include_once ( 'wp-ffpc-common.php');
 
 	/**
 	 * main wp-ffpc class
@@ -19,7 +19,9 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 	 *
 	 */
 	class WP_FFPC extends WP_Plugins_Abstract {
-		private $global_config = '$wp-ffpc-config';
+		private $global_config_name = '$wp-ffpc-config';
+		private $config_key = '';
+		private $global_config = array();
 		private $acache_config = '';
 		private $acache_worker = '';
 		private $acache = '';
@@ -32,12 +34,16 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		/**
 		 * init hook function runs before admin panel hook & themeing activated
 		 */
-		private function plugin_init() {
+		public function plugin_init() {
 			$this->acache_config = $this->plugin_dir . $this->plugin_constant . '-config.php';
 			$this->acache_worker = $this->plugin_dir . $this->plugin_constant . '-acahce.php';
 			$this->acache = ABSPATH . 'wp-content/advanced-cache.php';
-			$this->nginx_sample = $this->plugin_dir . '/nginx-sample.conf';
+			$this->nginx_sample = $this->plugin_dir . '/wp-ffpc-nginx-sample.conf';
 
+			if ( $this->network )
+				$this->config_key = 'network';
+			else
+				$this->config_key = $_SERVER['HTTP_HOST'];
 
 			$this->select_cache_type = array (
 				'apc' => __( 'APC' , $this->plugin_constant ),
@@ -109,7 +115,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			<script>
 				jQuery(document).ready(function($) {
-					jQuery( "#plugin-admin" ).tabs();
+					jQuery( "#<?php echo $this->plugin_constant ?>-settings" ).tabs();
 				});
 			</script>
 
@@ -179,7 +185,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<li><a href="#<?php echo $this->plugin_constant ?>-type" class="wp-switch-editor"><?php _e( 'Cache type', $this->plugin_constant ); ?></a></li>
 					<li><a href="#<?php echo $this->plugin_constant ?>-debug" class="wp-switch-editor"><?php _e( 'Debug & in-depth', $this->plugin_constant ); ?></a></li>
 					<li><a href="#<?php echo $this->plugin_constant ?>-exceptions" class="wp-switch-editor"><?php _e( 'Cache exceptions', $this->plugin_constant ); ?></a></li>
-					<li><a href="#<?php echo $this->plugin_constant ?>-apc" class="wp-switch-editor"><?php _e( 'APC', $this->plugin_constant ); ?></a></li>
 					<li><a href="#<?php echo $this->plugin_constant ?>-memcached" class="wp-switch-editor"><?php _e( 'Memcache(d)', $this->plugin_constant ); ?></a></li>
 					<li><a href="#<?php echo $this->plugin_constant ?>-nginx" class="wp-switch-editor"><?php _e( 'nginx', $this->plugin_constant ); ?></a></li>
 				</ul>
@@ -195,7 +200,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 							<?php $this->print_select_options ( $this->select_cache_type , $this->options['cache_type'] ) ?>
 						</select>
 						<span class="description"><?php _e('Select backend storage driver', $this->plugin_constant); ?></span>
-						<span class="default"><?php print_default ( 'cache_type' ); ?></span>
+						<span class="default"><?php $this->print_default ( 'cache_type' ); ?></span>
 					</dd>
 
 					<dt>
@@ -204,7 +209,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="number" name="expire" id="expire" value="<?php echo $this->options['expire']; ?>" />
 						<span class="description"><?php _e('Sets validity time of entry in milliseconds', $this->plugin_constant); ?></span>
-						<span class="default"><?php print_default ( 'expire' ); ?></span>
+						<span class="default"><?php $this->print_default ( 'expire' ); ?></span>
 					</dd>
 
 					<dt>
@@ -213,7 +218,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="text" name="charset" id="charset" value="<?php echo $this->options['charset']; ?>" />
 						<span class="description"><?php _e('Charset of HTML and XML (pages and feeds) data.', $this->plugin_constant); ?></span>
-						<span class="default"><?php print_default ( 'charset' ); ?></span>
+						<span class="default"><?php $this->print_default ( 'charset' ); ?></span>
 					</dd>
 
 					<dt>
@@ -221,10 +226,10 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dt>
 					<dd>
 						<select name="invalidation_method" id="invalidation_method">
-							<?php $this->invalidation_method ( $this->options['invalidation_method'] ) ?>
+							<?php $this->print_select_options ( $this->select_invalidation_method , $this->options['invalidation_method'] ) ?>
 						</select>
 						<span class="description"><?php _e('Select cache invalidation method. <p><strong>WARNING! When selection "all", the cache will be fully flushed, including elements that were set by other applications.</strong></p>', $this->plugin_constant); ?></span>
-						<span class="default"><?php _e('Default : ', $this->plugin_constant); echo $this->select_invalidation_method( $this->defaults['invalidation_method'] ); ?></span>
+						<span class="default"><?php $this->print_default ( 'invalidation_method' ); ?></span>
 					</dd>
 
 					<dt>
@@ -374,12 +379,13 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				<pre><?php echo $this->nginx_example(); ?></pre>
 				</fieldset>
 
-				<p>
+				<p class="clear">
 					<input class="button-primary" type="submit" name="<?php echo $this->button_save ?>" id="<?php echo $this->button_save ?>" value="<?php _e('Save Changes', $this->plugin_constant ) ?>" />
 					<input class="button-secondary" style="float: right" type="button" name="<?php echo $this->button_delete ?>" id="<?php echo $this->button_delete ?>" value="<?php _e('Delete options from DB', $this->plugin_constant ) ?>" />
 				</p>
 
 			</form>
+			</div>
 			<?php
 		}
 
@@ -396,11 +402,11 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			$nginx = str_replace ( $search , $replace , $nginx );
 
-			/* set upstream servers */
-			foreach ( array_keys( $this->options['servers'] ) as $server ) {
-				$nginx_servers .= "		server ". $server .";\n";
-			}
-			$nginx = str_replace ( 'MEMCACHED_SERVERS' , $nginx_servers , $nginx );
+			///* set upstream servers */
+			//foreach ( array_keys( $this->options['servers'] ) as $server ) {
+			//	$nginx_servers .= "		server ". $server .";\n";
+			//}
+			//$nginx = str_replace ( 'MEMCACHED_SERVERS' , $nginx_servers , $nginx );
 
 			/* logged in cache */
 			if ( $this->config['cache_loggedin'])
@@ -412,15 +418,17 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			return $nginx;
 		}
 
-		private function plugin_hook_options_save( $activating ) {
-			if ( $activating )
+		public function plugin_hook_options_save( $activating ) {
+			if ( !file_exists ( $this->acache ) || $activating )
 				$this->deploy_acache();
 
 			$this->update_acache_config();
 		}
 
-		private function plugin_hook_options_update () {
+		public function plugin_hook_options_read( &$options ) {
+		}
 
+		public function plugin_hook_options_delete(  ) {
 		}
 
 		private function deploy_acache( ) {
@@ -431,17 +439,24 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/* is deletion was unsuccessful, die, we have no rights to do that */
 			if ( @file_exists( $this->acache ))
 				return false;
+
 			$string[] = "<?php";
-			$string[] = 'global '. $this->global_config . ';';
-			$string[] .= "include_once ('" . $this->acache_config . "');";
-			$string[] .= "include_once ('" . $this->acache_worker . "');";
+			$string[] = 'global '. $this->global_config_name . ';';
+			$string[] = $this->global_config_name .' = eval( file_get_contents ( "' . $this->acache_config . '" ) );';
+			//$string[] .= "include_once ('" . $this->acache_worker . "');";
 
 			return file_put_contents( $this->acache, join( "\n" , $string ) );
 		}
 
 		private function update_acache_config ( $remove_site = false ) {
-			global $$this->global_config;
+			if ( file_exists ( $this->acache_config ) )
+				$this->global_config = eval( file_get_contents ( $this->acache_config ) );
+			else
+				$this->global_config = array();
 
+			$this->global_config[ $this->config_key ] = $this->options;
+
+			return file_put_contents( $this->acache_config , var_export( $this->global_config , true ) );
 		}
 	}
 }

@@ -26,7 +26,6 @@ License: GPL2
 
 */
 
-@include_once ( 'wp-ffpc-config.php' );
 include_once ( 'wp-ffpc-class.php' );
 
 $wp_ffpc_defaults = array (
@@ -35,7 +34,7 @@ $wp_ffpc_defaults = array (
 	'invalidation_method'=>0,
 	'prefix_meta' =>'meta-',
 	'prefix_data' =>'data-',
-	'default_charset' => 'utf-8',
+	'charset' => 'utf-8',
 	'log_info' => false,
 	'log' => true,
 	'cache_type' => 'memcached',
