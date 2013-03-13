@@ -26,7 +26,7 @@ Supports PHP Memcached, PHP Memcache and APC as storage engines.
 * multiple memcached upstream support
 
 = Using it with NGiNX =
-If the storage engine is either PHP Memcache or PHP Memcached extension, the created entries can be read and served directly from NGiNX ( is it has memcache support )
+If the storage engine is either PHP Memcache or PHP Memcached extension, the created entries can be read and served directly from NGiNX ( if it has memcache or memc extension )
 A short configuration example is generated on the plugin settings page, under `NGiNX` tab according to the saved settings.
 **NOTE** Some features ( most of additional HTTP headers for example, like pingback, shortlink, etc. ) will not be available with this solution.
 
@@ -39,11 +39,10 @@ Please post feature requests to [WP-FFPC feature request topic](http://wordpress
 
 and **at least one** of the following for storage backend:
 * PHP APC
-* PHP Memcached >
+* PHP Memcached > 0.1.0
 * PHP Memcache > 2.1.0
 
-
-Advanced cache file is based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") plugin by Satollo (info@satollo.net).
+Thanks for [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") for beeing inspirational.
 
 == Installation ==
 
@@ -78,11 +77,12 @@ Log levels ( if logging enabled ) includes info, warning and error level message
 = 1.0 =
 *undecided*
 
-* backend replaced with object layout for better readability, error handling and easier later expansion
-* rewamped multisite support
-* DEPRECATED APC entry compression support
-* multi-level logging
-* [Memcache](http://php.net/manual/en/book.memcache.php "Memcache extension") is NOT RECOMMENDED, please try to use [Memcached](http://php.net/manual/en/book.memcache.php "Memcached")
+* backend code completely replaced ( oop layout, better readability, lot less global vars, etc. )
+* rewamped multisite support ( advanced cache and configuration is separated to solve overwriting-problems )
+* preparations for localization support ( all strings are now go through WordPress translate except for advanced-cache logging, since there's no WordPress available at that point )
+
+**Dropped functions**
+* APC entry compression support
 
 = 0.6.1 =
 *2013.03.08*

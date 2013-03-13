@@ -1,6 +1,13 @@
 <?php
 /* abstact plugin base class */
 
+if ( ! defined( 'WP_CONTENT_URL' ) )	define( 'WP_CONTENT_URL', WP_SITEURL . '/wp-content' );
+if ( ! defined( 'WP_CONTENT_DIR' ) )	define( 'WP_CONTENT_DIR', ABSPATH . 'wp-content' );
+if ( ! defined( 'WP_PLUGIN_URL' ) )		define( 'WP_PLUGIN_URL', WP_CONTENT_URL. '/plugins' );
+if ( ! defined( 'WP_PLUGIN_DIR' ) )		define( 'WP_PLUGIN_DIR', WP_CONTENT_DIR . '/plugins' );
+if ( ! defined( 'WPMU_PLUGIN_URL' ) )	define( 'WPMU_PLUGIN_URL', WP_CONTENT_URL. '/mu-plugins' );
+if ( ! defined( 'WPMU_PLUGIN_DIR' ) )	define( 'WPMU_PLUGIN_DIR', WP_CONTENT_DIR . '/mu-plugins' );
+
 if (!class_exists('WP_Plugins_Abstract')) {
 
 	/**
@@ -63,13 +70,14 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		public function __construct( $plugin_constant, $plugin_version, $plugin_name, $defaults, $donation_link ) {
 
 			$this->plugin_constant = $plugin_constant;
-			$this->plugin_url = $this->replace_if_ssl ( get_option( 'siteurl' ) ) . '/wp-content/plugins/' . $this->plugin_constant . '/';
-			$this->plugin_dir = ABSPATH . 'wp-content/plugins/' . $this->plugin_constant . '/';
+
+
+			$this->plugin_url = $this->replace_if_ssl ( WP_PLUGIN_URL ) . '/' . $this->plugin_constant . '/';
+			$this->plugin_dir = WP_PLUGIN_DIR. '/' . $this->plugin_constant . '/';
 			$this->plugin_file = $this->plugin_constant . '/' . $this->plugin_constant . '.php';
 			$this->plugin_version = $plugin_version;
 			$this->plugin_name = $plugin_name;
 			$this->defaults = $defaults;
-			$this->plugin_option_group = $this->plugin_constant .'-params';
 			$this->plugin_settings_page = $this->plugin_constant .'-settings';
 			$this->donation_link = $donation_link;
 			$this->button_save = $this->plugin_constant . '-save';
@@ -333,7 +341,10 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 *
 		 */
 		protected function replace_if_ssl ( $url ) {
-			if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) )
+			if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' )
+				$_SERVER['HTTPS'] = 'on';
+
+			if ( isset($_SERVER['HTTPS']) && (( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ))
 				$url = str_replace ( 'http://' , 'https://' , $url );
 
 			return $url;

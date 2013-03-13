@@ -65,6 +65,10 @@
 	border-bottom-color: #fff;
 }
 
+.error p {
+	font-weight: bold;
+}
+
 .error-msg {
 	color: #990000;
 }

@@ -130,7 +130,7 @@ if (!empty ( $wp_ffpc_values['meta']['shortlink'] ) )
 if ( !empty($wp_ffpc_values['meta']['lastmodified']) )
 	header( 'Last-Modified: ' . gmdate("D, d M Y H:i:s", $wp_ffpc_values['meta']['lastmodified'] ). " GMT" );
 
-/* if last modifications were set (for posts & pages) */
+/* pingback urls, if existx */
 if ( !empty( $wp_ffpc_values['meta']['pingback'] ) )
 	header( 'X-Pingback: ' . $wp_ffpc_values['meta']['pingback'] );
 
@@ -143,18 +143,14 @@ echo $wp_ffpc_values['data'];
 flush();
 die();
 
-
-
 /**
- *  FUNCTIONS
- */
-
-/**
- * starts caching
+ * starts caching function
  *
  */
 function wp_ffpc_start( ) {
+	/* add filter for catching canonical redirects */
 	add_filter('redirect_canonical', 'wp_ffpc_redirect_callback', 10, 2);
+	/*  */
 	ob_start('wp_ffpc_callback');
 }
 
@@ -250,9 +246,16 @@ function wp_ffpc_callback( $buffer ) {
 		}
 	}
 
+	/* store pingback url if pingbacks are enabled */
+	if ( get_option ( 'default_ping_status' ) == 'open' )
+		$meta['pingback'] = get_bloginfo('pingback_url');
+
 	/* sync all http and https requests if enabled */
 	if ( $config['sync_protocols'] == '1' )
 	{
+		if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' )
+			$_SERVER['HTTPS'] = 'on';
+
 		if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) )
 		{
 			$sync_from = 'http://' . $_SERVER['SERVER_NAME'];

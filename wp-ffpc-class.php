@@ -16,9 +16,13 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 	 * @var array $select_cache_type Possible cache types array
 	 * @var array $select_invalidation_method Possible invalidation methods array
 	 * @var string $nginx_sample Nginx example config file location
+	 * @var array $select_cache_type Cache types string array
+	 * @var array $select_invalidation_method Invalidation methods string array
 	 *
 	 */
 	class WP_FFPC extends WP_Plugins_Abstract {
+		const host_separator  = ',';
+		const port_separator  = ':';
 		private $global_config_var = '$wp_ffpc_config';
 		private $global_config_key = '';
 		private $global_config = array();
@@ -26,11 +30,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		private $acache_worker = '';
 		private $acache = '';
 		private $nginx_sample = '';
-		private $acache_common = '';
-		const host_separator  = ',';
-		const port_separator  = ':';
-
-
+		private $acache_backend = '';
 
 		protected $select_cache_type = array ();
 		protected $select_invalidation_method = array ();
@@ -39,41 +39,60 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 * init hook function runs before admin panel hook & themeing activated
 		 */
 		public function plugin_init() {
+			/* configuration file: will store global config array */
 			$this->acache_config = $this->plugin_dir . $this->plugin_constant . '-config.php';
+			/* advanced cache "worker" file */
 			$this->acache_worker = $this->plugin_dir . $this->plugin_constant . '-acache.php';
-			$this->acache = ABSPATH . 'wp-content/advanced-cache.php';
+			/* WordPress advanced-cache.php file location */
+			$this->acache = WP_CONTENT_DIR . '/advanced-cache.php';
+			/* nginx sample config file */
 			$this->nginx_sample = $this->plugin_dir . $this->plugin_constant . '-nginx-sample.conf';
-			$this->acache_common = $this->plugin_dir . $this->plugin_constant . '-common.php';
+			$this->acache_backend = $this->plugin_dir . $this->plugin_constant . '-backend.php';
 
+			/* set global config key */
 			if ( $this->network )
 				$this->global_config_key = 'network';
 			else
 				$this->global_config_key = $_SERVER['HTTP_HOST'];
 
+			/* cache type possible values array */
 			$this->select_cache_type = array (
 				'apc' => __( 'APC' , $this->plugin_constant ),
 				'memcache' => __( 'PHP Memcache' , $this->plugin_constant ),
 				'memcached' => __( 'PHP Memcached' , $this->plugin_constant ),
 			);
 
+			/* invalidation method possible values array */
 			$this->select_invalidation_method = array (
 				0 => __( 'flush cache' , $this->plugin_constant ),
 				1 => __( 'only modified post' , $this->plugin_constant ),
 			);
+
+			/* initiate backend */
+			$this->backend = new WP_FFPC_Backend ( $this->options );
+
+			/* invalidate on some ocasions */
+			add_action( 'switch_theme', array( $this->backend , 'clear' ), 0 );
+			add_action( 'edit_post', array( $this->backend , 'clear' ), 0 );
+			add_action( 'publish_post', array( $this->backend , 'clear' ), 0 );
+			add_action( 'delete_post', array( $this->backend , 'clear' ), 0 );
 		}
 
 		/**
 		 * activation hook function, to be extended
 		 */
 		public function plugin_activate() {
-			$this->plugin_options_save();
+			/* save plugin options, defaults will be there this way */
+			$this->plugin_options_save( true );
 		}
 
 		/**
 		 * deactivation hook function, to be extended
 		 */
 		public function plugin_deactivate () {
-			$this->update_acache( true );
+			/* remove current site config from global config */
+			$this->update_acache_config( true );
+			/* we do not remove advanced-cache.php here, because plugin could still be active for other sites in a network ! */
 		}
 
 		/**
@@ -89,28 +108,28 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		}
 
 		/**
-		 * admin panel, the HTML usually
+		 * admin panel, the admin page displayed for plugin settings
 		 */
 		public function plugin_admin_panel() {
 			/**
-			 * security
+			 * security, if somehow we're running without WordPress security functions
 			 */
 			if( ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ){
 				die( );
 			}
 
 			/**
-			 * if options were saved
+			 * if options were saved, display saved message
 			 */
 			if ($_GET['saved']=='true' || $this->status == 1) : ?>
-				<div class='updated settings-error'><p><strong>Settings saved.</strong></p></div>
+				<div class='updated settings-error'><p><strong><?php _e( 'Settings saved.' , $this->plugin_constant ) ?></strong></p></div>
 			<?php endif;
 
 			/**
-			 * if options were saved
+			 * if options were delete, display delete message
 			 */
 			if ($_GET['deleted']=='true' || $this->status == 2) : ?>
-				<div class='error'><p><strong>Plugin options deleted.</strong></p></div>
+				<div class='error'><p><strong><?php _e( 'Plugin options deleted.' , $this->plugin_constant ) ?></strong></p></div>
 			<?php endif;
 
 			/**
@@ -126,39 +145,42 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			<div class="wrap">
 
-			<h4>This plugin helped your business? <a href="<?php echo WP_FFPC_DONATION_LINK; ?>">Buy me a coffee for having it, please :)</a></h4>
+			<h4>This plugin helped your business? <a href="<?php echo $this->donation_link; ?>">Buy me a coffee for having it, please :)</a></h4>
 
 			<?php if ( ! WP_CACHE ) : ?>
-				<div class="error"><p><strong><?php _e("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ); ?></strong></p></div>
+				<div class="error"><p><?php _e("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ); ?></p></div>
 			<?php endif; ?>
 
-			<?php if ( ! file_exists ( $this->acache ) || ! file_exists ( $this->acache_config ) ) : ?>
-				<div class="error"><p><strong><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", $this->plugin_constant); ?></strong></p></div>
+			<?php if ( ! file_exists ( $this->acache ) ) : ?>
+				<div class="error"><p><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", $this->plugin_constant); ?></p></div>
+			<?php endif; ?>
+
+			<?php if ( ! file_exists ( $this->acache_config ) ) : ?>
+				<div class="error"><p><?php _e("WARNING: advanced cache configuration file is yet to be generated, please save settings!", $this->plugin_constant); ?></p></div>
 			<?php endif; ?>
 
 			<?php if ( $this->options['cache_type'] == 'memcached' && !class_exists('Memcached') ) : ?>
-				<div class="error"><p><strong><?php _e('ERROR: Memcached cache backend activated but no PHP memcached extension was found.', $this->plugin_constant); ?></strong></p></div>
+				<div class="error"><p><?php _e('ERROR: Memcached cache backend activated but no PHP memcached extension was found.', $this->plugin_constant); ?></p></div>
 			<?php endif; ?>
 
 			<?php if ( $this->options['cache_type'] == 'memcache' && !class_exists('Memcache') ) : ?>
-				<div class="error"><p><strong><?php _e('ERROR: Memcache cache backend activated but no PHP memcache extension was found.', $this->plugin_constant); ?></strong></p></div>
+				<div class="error"><p><?php _e('ERROR: Memcache cache backend activated but no PHP memcache extension was found.', $this->plugin_constant); ?></p></div>
 			<?php endif; ?>
 
 			<?php
-				/* get the current runtime configuration for memcache in PHP */
+				/* get the current runtime configuration for memcache in PHP because Memcache in binary mode is really problematic */
 				$memcache_settings = ini_get_all( 'memcache' );
 				if ( !empty ( $memcache_settings ) && $this->options['cache_type'] == 'memcache' )
 				{
 					$memcache_protocol = strtolower($memcache_settings['memcache.protocol']['local_value']);
 					if ( $memcached_protocol == 'binary' ) :
 					?>
-					<div class="error"><p><strong><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work correctly. <br />Please consider to change either to ASCII mode or to Mecached extension.', $this->plugin_constant ); ?></strong></p></div>
+					<div class="error"><p><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work correctly. <br />Please consider to change either to ASCII mode or to Memcached extension.', $this->plugin_constant ); ?></p></div>
 					<?php
 					endif;
 				}
 			?>
 			<div class="updated">
-				<?php $this->backend = new WP_FFPC_Backend ( $this->options ); ?>
 				<p><strong><?php _e ( 'Driver: ' , $this->plugin_constant); echo $this->options['cache_type']; ?></strong></p>
 				<?php
 					/* only display backend status if memcache-like extension is running */
@@ -295,6 +317,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 						<span class="description"><?php _e('Enable to replace every protocol to the same as in the request for site\'s domain', $this->plugin_constant); ?></span>
 						<span class="default"><?php $this->print_default ( 'sync_protocols' ); ?></span>
 					</dd>
+
 				</dl>
 				</fieldset>
 
@@ -394,79 +417,122 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			<?php
 		}
 
-		private function nginx_example () {
-			$nginx = file_get_contents ( $this->nginx_sample );
-
-			$loggedin = '# avoid cache for logged in users
-				if ($http_cookie ~* "comment_author_|wordpressuser_|wp-postpass_" ) {
-					set $memcached_request 0;
-				}';
-
-			$search = array( 'DATAPREFIX', 'MEMCACHEDHOST', 'MEMCACHEDPORT' );
-			$replace = array ( $this->options['prefix_data'], $this->options['host'], $this->options['port'] );
-
-			$nginx = str_replace ( $search , $replace , $nginx );
-
-			/* set upstream servers */
-			$servers = $this->backend->get_servers();
-			foreach ( array_keys( $servers ) as $server ) {
-				$nginx_servers .= "		server ". $server .";\n";
-			}
-			$nginx = str_replace ( 'MEMCACHED_SERVERS' , $nginx_servers , $nginx );
-
-			/* logged in cache */
-			if ( ! $this->options['cache_loggedin'])
-				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , $loggedin , $nginx );
-			else
-				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , '' , $nginx );
-
-
-			return $nginx;
-		}
-
+		/**
+		 * extending options_save
+		 *
+		 */
 		public function plugin_hook_options_save( $activating ) {
+			/* flush the cache when news options are saved, not needed on activation */
+			if ( !$activating )
+				$this->backend->clear();
+
+			/* create advanced cache file, needed only once or on activation, because there could be lefover advanced-cache.php from different plugins */
 			if ( !file_exists ( $this->acache ) || $activating )
 				$this->deploy_acache();
 
+			/* create the to-be-included configuration for advanced-cache.php */
 			$this->update_acache_config();
 		}
 
+		/**
+		 * read hook; needs to be implemented
+		 */
 		public function plugin_hook_options_read( &$options ) {
-
 		}
 
-		public function plugin_hook_options_migrate( &$options ) {
-
-		}
-
+		/**
+		 * options delete hook; needs to be implemented
+		 */
 		public function plugin_hook_options_delete(  ) {
 		}
 
+		public function plugin_hook_options_migrate( &$options ) {
+		}
+
+		/**
+		 * advanced-cache.php creator function
+		 *
+		 */
 		private function deploy_acache( ) {
+
 			/* in case advanced-cache.php was already there, remove it */
 			if ( @file_exists( $this->acache ))
 				unlink ($this->acache);
 
-			/* is deletion was unsuccessful, die, we have no rights to do that */
+			/* is deletion was unsuccessful, die, we have no rights to do that, fail */
 			if ( @file_exists( $this->acache ))
 				return false;
 
+			/* add the required includes and generate the needed code */
 			$string[] = "<?php";
-			$string[] = "include_once ('" . $this->acache_common . "');";
+			$string[] = "include_once ('" . $this->acache_backend . "');";
 			$string[] = "eval ( '". $this->global_config_var ." = ' . file_get_contents ( '" . $this->acache_config . "' ) . ';' );";
 			//$string[] = 'global '. $this->global_config_var . ';';
 			$string[] = "include_once ('" . $this->acache_worker . "');";
 
 			$string[] = "?>";
 
+			/* write the file and start caching from this point */
 			return file_put_contents( $this->acache, join( "\n" , $string ) );
 		}
 
+		/**
+		 * function to generate working example from the nginx sample file
+		 *
+		 * @return string nginx config file
+		 *
+		 */
+		private function nginx_example () {
+			/* read the sample file */
+			$nginx = file_get_contents ( $this->nginx_sample );
+
+			/* this part is not used when the cache is turned on for logged in users */
+			$loggedin = '# avoid cache for logged in users
+				if ($http_cookie ~* "comment_author_|wordpressuser_|wp-postpass_" ) {
+					set $memcached_request 0;
+				}';
+
+			/* replace the data prefix with the configured one */
+			$nginx = str_replace ( 'DATAPREFIX' , $this->options['prefix_data'] , $nginx );
+
+			/* set upstream servers from configured servers, best to get from the actual backend */
+			$servers = $this->backend->get_servers();
+			foreach ( array_keys( $servers ) as $server ) {
+				$nginx_servers .= "		server ". $server .";\n";
+			}
+			$nginx = str_replace ( 'MEMCACHED_SERVERS' , $nginx_servers , $nginx );
+
+			/* add logged in cache, if valid */
+			if ( ! $this->options['cache_loggedin'])
+				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , $loggedin , $nginx );
+			else
+				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , '' , $nginx );
+
+			return $nginx;
+		}
+
+		/**
+		 * function to update global configuration
+		 *
+		 * @param boolean $remove_site Bool to remove or add current config to global
+		 *
+		 */
 		private function update_acache_config ( $remove_site = false ) {
 
+			/* read global config */
 			eval ( '$this->global_config = ' . file_get_contents ( $this->acache_config ) . ';' );
-			$this->global_config[ $this->global_config_key ] = $this->options;
+
+			/* remove or add current config to global config */
+			if ( $remove_site ) {
+				unset ( $this->global_config[ $this->global_config_key ] );
+			}
+			else {
+				$this->global_config[ $this->global_config_key ] = $this->options;
+			}
+
+			/* write config file */
 			return file_put_contents( $this->acache_config , var_export( $this->global_config , true ) );
+
 		}
 
 	}
