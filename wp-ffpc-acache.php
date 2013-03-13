@@ -64,6 +64,7 @@ if ( $wp_ffpc_config['cache_loggedin'] == 0 ) {
 	}
 }
 
+$wp_ffpc_redirect = null;
 $wp_ffpc_backend = new WP_FFPC_Backend( $wp_ffpc_config );
 
 if ( $wp_ffpc_backend->status() === false )
@@ -94,8 +95,8 @@ if ( $wp_ffpc_values['meta']['status'] == 404 ) {
 }
 
 /* server redirect cache */
-if ( $wp_ffpc_values['meta']['redirect_location'] ) {
-	header('Location: ' . $wp_ffpc_values['meta']['redirect_location'] );
+if ( $wp_ffpc_values['meta']['redirect'] ) {
+	header('Location: ' . $wp_ffpc_values['meta']['redirect'] );
 	flush();
 	die();
 }
@@ -153,16 +154,27 @@ die();
  *
  */
 function wp_ffpc_start( ) {
+	add_filter('redirect_canonical', 'wp_ffpc_redirect_callback', 10, 2);
 	ob_start('wp_ffpc_callback');
 }
 
+/**
+ * callback function for WordPress redirect urls
+ *
+ */
+function wp_ffpc_redirect_callback ($redirect_url, $requested_url) {
+	global $wp_ffpc_redirect;
+	$wp_ffpc_redirect = $redirect_url;
+	return $redirect_url;
+}
 
 /**
  * write cache function, called when page generation ended
  */
-function wp_ffpc_callback($buffer) {
+function wp_ffpc_callback( $buffer ) {
 	global $wp_ffpc_config;
 	global $wp_ffpc_backend;
+	global $wp_ffpc_redirect;
 
 	/* no is_home = error */
 	if (!function_exists('is_home'))
@@ -206,6 +218,10 @@ function wp_ffpc_callback($buffer) {
 
 	if ( is_404() )
 		$meta['status'] = 404;
+
+	/* redirect page */
+	if ( $wp_ffpc_redirect != null)
+		$meta['redirect'] =  $wp_ffpc_redirect;
 
 	/* feed is xml, all others forced to be HTML */
 	if ( is_feed() )

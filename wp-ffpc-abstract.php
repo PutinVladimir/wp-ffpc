@@ -17,7 +17,6 @@ if (!class_exists('WP_Plugins_Abstract')) {
 	 * @var string $plugin_file Filename of main plugin PHP file
 	 * @var string $plugin_name Name of the plugin
 	 * @var string $plugin_version Plugin version number
-	 * @var string $plugin_option_group Option group name of plugin
 	 * @var string $setting_page Setting page URL name
 	 * @var string $setting_slug Parent settings page slug
 	 * @var string $donation_link Donation link URL
@@ -27,7 +26,6 @@ if (!class_exists('WP_Plugins_Abstract')) {
 	 * @var string $slug_save URL slug to present saved state
 	 * @var string $slug_delete URL slug to present delete state
 	 * @var int $loglevel Level of log in syslog
-	 * @var boolean $debug Enables syslog messages if true
 	 *
 	 */
 	abstract class WP_Plugins_Abstract {
@@ -44,7 +42,6 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		protected $plugin_file;
 		protected $plugin_name;
 		protected $plugin_version;
-		protected $plugin_option_group;
 		protected $plugin_settings_page;
 		protected $donation_link;
 		protected $button_save;
@@ -52,13 +49,13 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		public $capability = 10;
 		const slug_save = '&saved=true';
 		const slug_delete = '&deleted=true';
-		public $debug = false;
 
 		/**
 		* constructor
 		*
 		* @param string $plugin_constant General plugin identifier, same as directory & base PHP file name
 		* @param string $plugin_version Version number of the parameter
+		* @param string $plugin_name Readable name of the plugin
 		* @param mixed $defaults Default value(s) for plugin option(s)
 		* @param string $donation_link Donation link of plugin
 		*
@@ -91,12 +88,8 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				$this->settings_slug = 'options-general.php';
 			}
 
+			/* set the settings page link string */
 			$this->settings_link = $this->settings_slug . '?page=' .  $this->plugin_settings_page;
-
-			/* register options on very first run
-			 * this will only register parameter once
-			 */
-			//add_site_option( $this->plugin_constant, $this->defaults );
 
 			/* get the options */
 			$this->plugin_options_read();
@@ -130,7 +123,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			else
 				add_filter( "plugin_action_links_" . $this->plugin_file, array( $this, 'plugin_settings_link' ) );
 
-			/* register admin init */
+			/* register admin init, catches $_POST and adds submenu to admin menu */
 			if ( $this->network )
 				add_action('network_admin_menu', array( $this , 'plugin_admin_init') );
 			else
@@ -174,7 +167,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				header( "Location: ". $this->settings_link . self::slug_save );
 			}
 
-			/* save parameter updates, if there are any */
+			/* delete parameters if requested */
 			if ( isset( $_POST[ $this->button_delete ] ) ) {
 				$this->plugin_options_delete();
 				$this->status = 2;
@@ -185,8 +178,9 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		}
 
 		/**
-		 * add settings link to plugins page hook function
+		 * callback function to add settings link to plugins page
 		 *
+		 * @param array $links Current links to add ours to
 		 *
 		 */
 		public function plugin_settings_link ( $links ) {
@@ -217,6 +211,9 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			/* get the currently saved options */
 			$options = get_site_option( $this->plugin_constant );
 
+			/* this is the point to make any migrations from previous versions */
+			$this->plugin_hook_options_migrate( $options );
+
 			/* map missing values from default */
 			foreach ( $this->defaults as $key => $default )
 				if ( !@array_key_exists ( $key, $options ) )
@@ -238,11 +235,15 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		abstract function plugin_hook_options_read ( &$options );
 
 		/**
+		 * hook for parameter migration
+		 */
+		abstract function plugin_hook_options_migrate( &$options );
+
+		/**
 		 * used on update and to save current options to database
 		 *
 		 * @param boolean $activating [optional] true on activation hook
 		 *
-		 * @return
 		 */
 		protected function plugin_options_save ( $activating = false ) {
 
@@ -297,9 +298,9 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * sends message to sysog
 		 *
 		 * @param string $message message to add besides basic info
+		 * @param int $log_level [optional] Level of log, info by default
 		 *
 		 */
-
 		protected function log ( $message, $log_level = LOG_INFO ) {
 
 			if ( @is_array( $message ) || @is_object ( $message ) )
@@ -374,28 +375,39 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		}
 
 		/**
-		 * select field processor
+		 * select options field processor
 		 *
-		 * @param sizes
-		 * 	array to build <option> values of
+		 * @param elements
+		 *  array to build <option> values of
 		 *
 		 * @param $current
-		 * 	the current resize type
+		 *  the current active element
 		 *
-		 * @param $returntext
-		 * 	boolean: is true, the description will be returned of $current type
+		 * @param $print
+		 *  boolean: is true, the options will be printed, otherwise the string will be returned
 		 *
 		 * @return
-		 * 	prints either description of $current
-		 * 	or option list for a <select> input field with $current set as active
+		 * 	prints or returns the options string
 		 *
 		 */
-		protected function print_select_options ( $elements, $current ) {
+		protected function print_select_options ( $elements, $current, $print = true ) {
+			/*
 			foreach ($elements as $value => $name ) : ?>
 				<option value="<?php echo $value ?>" <?php selected( $value , $current ); ?>>
 					<?php echo $name ; ?>
 				</option>
 			<?php endforeach;
+			*/
+			foreach ($elements as $value => $name ) {
+				$opt .= '<option value="' . $value . '" ' . selected( $value , $current ) . '>';
+				$opt .= $name;
+				$opt .= "</option>\n";
+			}
+
+			if ( $print )
+				echo $opt;
+			else
+				return $opt;
 		}
 
 	}

@@ -257,6 +257,15 @@ if (!class_exists('WP_FFPC_Backend')) {
 
 		}
 
+
+		/**
+		 *
+		 *
+		 */
+		public function get_servers () {
+			return $this->options['servers'];
+		}
+
 		/**
 		 * sends message to sysog
 		 *

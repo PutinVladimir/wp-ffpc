@@ -407,14 +407,15 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			$nginx = str_replace ( $search , $replace , $nginx );
 
-			///* set upstream servers */
-			//foreach ( array_keys( $this->options['servers'] ) as $server ) {
-			//	$nginx_servers .= "		server ". $server .";\n";
-			//}
-			//$nginx = str_replace ( 'MEMCACHED_SERVERS' , $nginx_servers , $nginx );
+			/* set upstream servers */
+			$servers = $this->backend->get_servers();
+			foreach ( array_keys( $servers ) as $server ) {
+				$nginx_servers .= "		server ". $server .";\n";
+			}
+			$nginx = str_replace ( 'MEMCACHED_SERVERS' , $nginx_servers , $nginx );
 
 			/* logged in cache */
-			if ( $this->options['cache_loggedin'])
+			if ( ! $this->options['cache_loggedin'])
 				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , $loggedin , $nginx );
 			else
 				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , '' , $nginx );
@@ -431,6 +432,10 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		}
 
 		public function plugin_hook_options_read( &$options ) {
+
+		}
+
+		public function plugin_hook_options_migrate( &$options ) {
 
 		}
 
