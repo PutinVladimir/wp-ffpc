@@ -446,7 +446,29 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		public function plugin_hook_options_delete(  ) {
 		}
 
+		/**
+		 * need to do migrations from previous versions of the plugin
+		 *
+		 */
 		public function plugin_hook_options_migrate( &$options ) {
+			if ( $options['version'] != $this->plugin_version || !isset ( $options['version'] ) ) {
+				$key = $this->global_config_key;
+				/* updating from version 0.4.x */
+				if ( !empty ( $options['host'] ) ) {
+					$options['hosts'] = $options['host'] . ':' . $options['port'];
+				}
+				/* migrating from version 0.6.x */
+				elseif ( array_key_exists ( $this->$key , $options ) ) {
+					$options = $options[ $key ];
+				}
+				/* migrating from something, drop previous config */
+				else {
+					$options = array();
+				}
+				/* renamed options */
+				$options['log'] = $options['syslog'];
+				$options['response_header'] = $options['debug'];
+			}
 		}
 
 		/**
