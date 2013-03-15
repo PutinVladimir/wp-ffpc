@@ -183,7 +183,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				<div class="error"><p><?php _e("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ); ?></p></div>
 			<?php endif; ?>
 
-			<?php if ( ! array_key_exists ( $this->global_config_key, $this->global_config ) ) : ?>
+			<?php if ( ! @array_key_exists ( $this->global_config_key, $this->global_config ) ) : ?>
 				<div class="error"><p><?php _e("WARNING: plugin settings are not yet saved for the site, please save settings!", $this->plugin_constant); ?></p></div>
 			<?php endif; ?>
 
@@ -205,15 +205,18 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			<?php
 				/* get the current runtime configuration for memcache in PHP because Memcache in binary mode is really problematic */
-				$memcache_settings = ini_get_all( 'memcache' );
-				if ( !empty ( $memcache_settings ) && $this->options['cache_type'] == 'memcache' )
+				if ( extension_loaded ( 'memcache' )  )
 				{
-					$memcache_protocol = strtolower($memcache_settings['memcache.protocol']['local_value']);
-					if ( $memcached_protocol == 'binary' ) :
-					?>
-					<div class="error"><p><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work correctly. <br />Please consider to change either to ASCII mode or to Memcached extension.', $this->plugin_constant ); ?></p></div>
-					<?php
-					endif;
+					$memcache_settings = ini_get_all( 'memcache' );
+					if ( !empty ( $memcache_settings ) && $this->options['cache_type'] == 'memcache' )
+					{
+						$memcache_protocol = strtolower($memcache_settings['memcache.protocol']['local_value']);
+						if ( $memcached_protocol == 'binary' ) :
+						?>
+						<div class="error"><p><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work correctly. <br />Please consider to change either to ASCII mode or to Memcached extension.', $this->plugin_constant ); ?></p></div>
+						<?php
+						endif;
+					}
 				}
 			?>
 			<div class="updated">
