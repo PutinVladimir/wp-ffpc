@@ -34,6 +34,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 		protected $select_cache_type = array ();
 		protected $select_invalidation_method = array ();
+		protected $valid_cache_type = array ();
 
 		/**
 		 * init hook function runs before admin panel hook & themeing activated
@@ -62,6 +63,12 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				'memcached' => __( 'PHP Memcached' , $this->plugin_constant ),
 			);
 
+			$this->valid_cache_type = array (
+				'apc' => function_exists( 'apc_sma_info' ) ? true : false,
+				'memcache' => class_exists ( 'Memcache') ? true : false,
+				'memcached' => class_exists ( 'Memcached') ? true : false,
+			);
+
 			/* invalidation method possible values array */
 			$this->select_invalidation_method = array (
 				0 => __( 'flush cache' , $this->plugin_constant ),
@@ -71,19 +78,37 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/* initiate backend */
 			$this->backend = new WP_FFPC_Backend ( $this->options );
 
-			/* invalidate on some ocasions */
+			/* get all available post types */
+			$post_types = get_post_types( );
+
+			/* cache invalidation hooks */
+			foreach ( $post_types as $post_type ) {
+				add_action( 'new_to_publish_' .$post_type , array( $this->backend , 'clear' ), 0 );
+				add_action( 'draft_to_publish' .$post_type , array( $this->backend , 'clear' ), 0 );
+				add_action( 'pending_to_publish' .$post_type , array( $this->backend , 'clear' ), 0 );
+				add_action( 'private_to_publish' .$post_type , array( $this->backend , 'clear' ), 0 );
+				add_action( 'publish_' . $post_type , array( $this->backend , 'clear' ), 0 );
+			}
+
+			/* invalidation on some other ocasions as well */
 			add_action( 'switch_theme', array( $this->backend , 'clear' ), 0 );
+			add_action( 'deleted_post', array( $this->backend , 'clear' ), 0 );
 			add_action( 'edit_post', array( $this->backend , 'clear' ), 0 );
-			add_action( 'publish_post', array( $this->backend , 'clear' ), 0 );
-			add_action( 'delete_post', array( $this->backend , 'clear' ), 0 );
+
+			/* read current global config */
+			if ( file_exists ( $this->acache_config ))
+				eval ( '$this->global_config = ' . file_get_contents ( $this->acache_config ) . ';' );
+
+			/* add filter for catching canonical redirects */
+			add_filter('redirect_canonical', 'wp_ffpc_redirect_callback', 10, 2);
+
 		}
 
 		/**
 		 * activation hook function, to be extended
 		 */
 		public function plugin_activate() {
-			/* save plugin options, defaults will be there this way */
-			$this->plugin_options_save( true );
+			/* we leave this empty to avoid not detecting WP network correctly */
 		}
 
 		/**
@@ -92,7 +117,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		public function plugin_deactivate () {
 			/* remove current site config from global config */
 			$this->update_acache_config( true );
-			/* we do not remove advanced-cache.php here, because plugin could still be active for other sites in a network ! */
 		}
 
 		/**
@@ -117,6 +141,18 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			if( ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ){
 				die( );
 			}
+			?>
+
+			<div class="wrap">
+			<h4>This plugin helped your business? <a href="<?php echo $this->donation_link; ?>">Buy me a coffee for having it, please :)</a></h4>
+			<?php
+
+			/**
+			 * if options were saved, display saved message
+			 */
+			if ( ! empty( $this->broadcast_message ) ) : ?>
+				<div class="updated"><?php echo $this->broadcast_message; ?></div>
+			<?php endif;
 
 			/**
 			 * if options were saved, display saved message
@@ -142,10 +178,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					jQuery( "#<?php echo $this->plugin_constant ?>-settings" ).tabs();
 				});
 			</script>
-
-			<div class="wrap">
-
-			<h4>This plugin helped your business? <a href="<?php echo $this->donation_link; ?>">Buy me a coffee for having it, please :)</a></h4>
 
 			<?php if ( ! WP_CACHE ) : ?>
 				<div class="error"><p><?php _e("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ); ?></p></div>
@@ -224,7 +256,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dt>
 					<dd>
 						<select name="cache_type" id="cache_type">
-							<?php $this->print_select_options ( $this->select_cache_type , $this->options['cache_type'] ) ?>
+							<?php $this->print_select_options ( $this->select_cache_type , $this->options['cache_type'], $this->valid_cache_type ) ?>
 						</select>
 						<span class="description"><?php _e('Select backend storage driver', $this->plugin_constant); ?></span>
 						<span class="default"><?php $this->print_default ( 'cache_type' ); ?></span>
@@ -426,12 +458,13 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			if ( !$activating )
 				$this->backend->clear();
 
-			/* create advanced cache file, needed only once or on activation, because there could be lefover advanced-cache.php from different plugins */
-			if ( !file_exists ( $this->acache ) || $activating )
-				$this->deploy_acache();
-
 			/* create the to-be-included configuration for advanced-cache.php */
 			$this->update_acache_config();
+
+			/* create advanced cache file, needed only once or on activation, because there could be lefover advanced-cache.php from different plugins */
+			if (  !$activating )
+				$this->deploy_acache();
+
 		}
 
 		/**
@@ -458,7 +491,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					$options['hosts'] = $options['host'] . ':' . $options['port'];
 				}
 				/* migrating from version 0.6.x */
-				elseif ( array_key_exists ( $this->$key , $options ) ) {
+				elseif ( is_array ( $options ) && array_key_exists ( $this->$key , $options ) ) {
 					$options = $options[ $key ];
 				}
 				/* migrating from something, drop previous config */
@@ -487,9 +520,10 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			/* add the required includes and generate the needed code */
 			$string[] = "<?php";
-			$string[] = "include_once ('" . $this->acache_backend . "');";
-			$string[] = "eval ( '". $this->global_config_var ." = ' . file_get_contents ( '" . $this->acache_config . "' ) . ';' );";
+			$string[] = $this->global_config_var . ' = ' . var_export ( $this->global_config, true ) . ';' ;
+			//$string[] = "eval ( '". $this->global_config_var ." = ' . file_get_contents ( '" . $this->acache_config . "' ) . ';' );";
 			//$string[] = 'global '. $this->global_config_var . ';';
+			$string[] = "include_once ('" . $this->acache_backend . "');";
 			$string[] = "include_once ('" . $this->acache_worker . "');";
 
 			$string[] = "?>";
@@ -541,9 +575,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 */
 		private function update_acache_config ( $remove_site = false ) {
 
-			/* read global config */
-			eval ( '$this->global_config = ' . file_get_contents ( $this->acache_config ) . ';' );
-
 			/* remove or add current config to global config */
 			if ( $remove_site ) {
 				unset ( $this->global_config[ $this->global_config_key ] );
@@ -551,6 +582,9 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			else {
 				$this->global_config[ $this->global_config_key ] = $this->options;
 			}
+
+			/* deploy advanced-cache.php */
+			$this->deploy_acache ();
 
 			/* write config file */
 			return file_put_contents( $this->acache_config , var_export( $this->global_config , true ) );

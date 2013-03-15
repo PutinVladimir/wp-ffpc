@@ -148,9 +148,7 @@ die();
  *
  */
 function wp_ffpc_start( ) {
-	/* add filter for catching canonical redirects */
-	add_filter('redirect_canonical', 'wp_ffpc_redirect_callback', 10, 2);
-	/*  */
+	/* start object "colleting" and pass it the the actual storer function  */
 	ob_start('wp_ffpc_callback');
 }
 

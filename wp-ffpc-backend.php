@@ -9,16 +9,16 @@
  *
  */
 
-/* __ only availabe if we're running from the inside of wordpress, not in advanced-cache.php phase */
-if ( function_exists ( '__' ) ) {
-	function __translate__ ( $text, $domain ) { return __($text, $domain); }
-}
-else {
-	function __translate__ ( $text, $domain ) { return $text; }
-}
-
-
 if (!class_exists('WP_FFPC_Backend')) {
+	/* __ only availabe if we're running from the inside of wordpress, not in advanced-cache.php phase */
+	if ( function_exists ( '__' ) ) {
+		function __translate__ ( $text, $domain ) { return __($text, $domain); }
+	}
+	else {
+		function __translate__ ( $text, $domain ) { return $text; }
+	}
+
+
 	/**
 	 *
 	 * @var array $key_prefixes Prefix keys for entries

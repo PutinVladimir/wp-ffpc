@@ -32,7 +32,8 @@ if (!class_exists('WP_Plugins_Abstract')) {
 	 * @var int $capability Level of admin required to manage plugin settings
 	 * @var string $slug_save URL slug to present saved state
 	 * @var string $slug_delete URL slug to present delete state
-	 * @var int $loglevel Level of log in syslog
+	 * @var string $broadcast_url URL base of broadcast messages
+	 * @var string $broadcast_message Name of the file to get broadcast message from the web
 	 *
 	 */
 	abstract class WP_Plugins_Abstract {
@@ -56,6 +57,8 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		public $capability = 10;
 		const slug_save = '&saved=true';
 		const slug_delete = '&deleted=true';
+		const broadcast_url = 'http://petermolnar.eu/broadcast/';
+		protected $broadcast_message;
 
 		/**
 		* constructor
@@ -82,6 +85,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			$this->donation_link = $donation_link;
 			$this->button_save = $this->plugin_constant . '-save';
 			$this->button_delete = $this->plugin_constant . '-delete';
+			$this->broadcast_message = self::broadcast_url . $this->plugin_constant . '.message';
 
 			/* we need network wide plugin check functions */
 			if ( ! function_exists( 'is_plugin_active_for_network' ) )
@@ -121,9 +125,9 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				}
 			}
 
-			register_activation_hook(__FILE__ , array( $this , 'plugin_activate') );
-			register_deactivation_hook(__FILE__ , array( $this , 'plugin_deactivate') );
-			register_uninstall_hook(__FILE__ , array( $this , 'plugin_uninstall') );
+			register_activation_hook( $this->plugin_file , array( $this , 'plugin_activate') );
+			register_deactivation_hook( $this->plugin_file , array( $this , 'plugin_deactivate') );
+			register_uninstall_hook( $this->plugin_file , array( $this , 'plugin_uninstall') );
 
 			/* register settings pages */
 			if ( $this->network )
@@ -182,6 +186,10 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				header( "Location: ". $this->settings_link . self::slug_delete );
 			}
 
+			/* get broadcast message, if available */
+			$this->broadcast_message = @file_get_contents( $this->broadcast_message );
+
+			/* add submenu to settings pages */
 			add_submenu_page( $this->settings_slug, $this->plugin_name . __( ' options' , $this->plugin_constant ), $this->plugin_name, $this->capability, $this->plugin_settings_page, array ( $this , 'plugin_admin_panel' ) );
 		}
 
@@ -401,7 +409,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * 	prints or returns the options string
 		 *
 		 */
-		protected function print_select_options ( $elements, $current, $print = true ) {
+		protected function print_select_options ( $elements, $current, $valid = false, $print = true ) {
 			/*
 			foreach ($elements as $value => $name ) : ?>
 				<option value="<?php echo $value ?>" <?php selected( $value , $current ); ?>>
@@ -409,8 +417,21 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				</option>
 			<?php endforeach;
 			*/
+			if ( is_array ( $valid ) )
+				$check_disabled = true;
+			else
+				$check_disabled = false;
+
 			foreach ($elements as $value => $name ) {
-				$opt .= '<option value="' . $value . '" ' . selected( $value , $current ) . '>';
+				//$disabled .= ( @array_key_exists( $valid[ $value ] ) && $valid[ $value ] == false ) ? ' disabled="disabled"' : '';
+				$opt .= '<option value="' . $value . '" ';
+				$opt .= selected( $value , $current );
+
+				// ugly tree level valid check to prevent array warning messages
+				if ( is_array( $valid ) && isset ( $valid [ $value ] ) && $valid [ $value ] == false )
+					$opt .= ' disabled="disabled"';
+
+				$opt .= '>';
 				$opt .= $name;
 				$opt .= "</option>\n";
 			}
