@@ -50,12 +50,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			$this->nginx_sample = $this->plugin_dir . $this->plugin_constant . '-nginx-sample.conf';
 			$this->acache_backend = $this->plugin_dir . $this->plugin_constant . '-backend.php';
 
-			/* set global config key */
-			if ( $this->network )
-				$this->global_config_key = 'network';
-			else
-				$this->global_config_key = $_SERVER['HTTP_HOST'];
-
 			/* cache type possible values array */
 			$this->select_cache_type = array (
 				'apc' => __( 'APC' , $this->plugin_constant ),
@@ -117,18 +111,27 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		public function plugin_deactivate () {
 			/* remove current site config from global config */
 			$this->update_acache_config( true );
+
+			/* if we're not in a network or no active site left, remove the advanced cache and the config, just in case */
+			if ( ! $this->network || empty ( $this->global_config ) ) {
+				$this->plugin_uninstall ( false );
+			}
+
 		}
 
 		/**
 		 * uninstall hook function, to be extended
 		 */
-		public function plugin_uninstall() {
+		public function plugin_uninstall( $delete_options = true ) {
+
 			/* delete plugin config array file */
 			unlink ( $this->acache_config );
 			/* delete advanced-cache.php file */
 			unlink ( $this->acache );
+
 			/* delete site settings */
-			$this->plugin_options_delete ();
+			if ( $delete_options )
+				$this->plugin_options_delete ();
 		}
 
 		/**
@@ -461,6 +464,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 *
 		 */
 		public function plugin_hook_options_save( $activating ) {
+
 			/* flush the cache when news options are saved, not needed on activation */
 			if ( !$activating )
 				$this->backend->clear();
@@ -491,15 +495,29 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 *
 		 */
 		public function plugin_hook_options_migrate( &$options ) {
+			/* set global config key; here, because it's needed for migration */
+			if ( $this->network )
+				$this->global_config_key = 'network';
+			else
+				$this->global_config_key = $_SERVER['HTTP_HOST'];
+
 			if ( $options['version'] != $this->plugin_version || !isset ( $options['version'] ) ) {
-				$key = $this->global_config_key;
+
+				/* cleanup possible leftover files from previous versions */
+				$check = array ( 'advanced-cache.php', 'nginx-sample.conf', 'wp-ffpc.admin.css', 'wp-ffpc-common.php' );
+				foreach ( $check as $fname ) {
+					$fname = $this->plugin_dir . $fname;
+					if ( file_exists ( $fname ) )
+						unlink ( $fname );
+				}
+
 				/* updating from version 0.4.x */
 				if ( !empty ( $options['host'] ) ) {
 					$options['hosts'] = $options['host'] . ':' . $options['port'];
 				}
 				/* migrating from version 0.6.x */
-				elseif ( is_array ( $options ) && array_key_exists ( $this->$key , $options ) ) {
-					$options = $options[ $key ];
+				elseif ( is_array ( $options ) && array_key_exists ( $this->global_config_key , $options ) ) {
+					$options = $options[ $this->global_config_key ];
 				}
 				/* migrating from something, drop previous config */
 				else {
