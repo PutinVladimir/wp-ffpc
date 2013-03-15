@@ -183,6 +183,10 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				<div class="error"><p><?php _e("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ); ?></p></div>
 			<?php endif; ?>
 
+			<?php if ( ! array_key_exists ( $this->global_config_key, $this->global_config ) ) : ?>
+				<div class="error"><p><?php _e("WARNING: plugin settings are not yet saved for the site, please save settings!", $this->plugin_constant); ?></p></div>
+			<?php endif; ?>
+
 			<?php if ( ! file_exists ( $this->acache ) ) : ?>
 				<div class="error"><p><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", $this->plugin_constant); ?></p></div>
 			<?php endif; ?>
