@@ -25,6 +25,8 @@ Supports PHP Memcached, PHP Memcache and APC as storage engines.
 * (optional) talkative log for troubleshooting
 * multiple memcached upstream support
 
+Many thanks for supporters, testers & bug reporters: [Eric Gilette](http://www.ericgillette.com/ "Eric Gilette"); [doconeill](http://wordpress.org/support/profile/doconeill "doconeill"); [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow").
+
 Thanks for [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") for beeing inspirational.
 
 == Installation ==
@@ -78,10 +80,11 @@ and **at least one** of the following for storage backend:
 = 0.7 =
 *in beta state*
 
-* backend code completely replaced ( oop layout, better readability, lot less global vars, easier future expansion, etc. )
-* revisited multisite support ( advanced cache and configuration is separated to solve overwriting-problems )
+* backend code completely replaced ( object-based backend, improved readability & better structure, lot less global vars, etc. )
+* revisited multisite support ( solved overwriting-problems )
 * preparations for localization support ( all strings are now go through WordPress translate except for advanced-cache logging, since there's no WordPress available at that point )
-* added a lot more and a lot better log messages, also introducing info, warning and error levels
+* more and more detailed log & error messages
+* retouched Memcache initialization ( faster connect )
 
 **Bugfixes**
 * reported bug of faulty expiration times fixed

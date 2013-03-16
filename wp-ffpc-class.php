@@ -23,6 +23,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 	class WP_FFPC extends WP_Plugins_Abstract {
 		const host_separator  = ',';
 		const port_separator  = ':';
+		const donation_id_key = 'hosted_button_id=';
 		private $global_config_var = '$wp_ffpc_config';
 		private $global_config_key = '';
 		private $global_config = array();
@@ -147,9 +148,16 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			?>
 
 			<div class="wrap">
-			<h4>This plugin helped your business? <a href="<?php echo $this->donation_link; ?>">Buy me a coffee for having it, please :)</a></h4>
+
+			<script>
+				jQuery(document).ready(function($) {
+					jQuery( "#<?php echo $this->plugin_constant ?>-settings" ).tabs();
+				});
+			</script>
+
 			<?php
 
+			$this->plugin_donation_form();
 			/**
 			 * if options were saved, display saved message
 			 */
@@ -176,11 +184,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			 */
 			?>
 
-			<script>
-				jQuery(document).ready(function($) {
-					jQuery( "#<?php echo $this->plugin_constant ?>-settings" ).tabs();
-				});
-			</script>
+			<h2><?php echo $this->plugin_name ; _e( ' settings', $this->plugin_constant ) ; ?></h2>
 
 			<?php if ( ! WP_CACHE ) : ?>
 				<div class="error"><p><?php _e("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ); ?></p></div>
@@ -247,7 +251,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					endif;
 				?>
 			</div>
-			<h2><?php echo $plugin_name ; _e( ' settings', $this->plugin_constant ) ; ?></h2>
 			<form method="post" action="#" id="<?php echo $this->plugin_constant ?>-settings" class="plugin-admin">
 
 				<ul class="tabs">

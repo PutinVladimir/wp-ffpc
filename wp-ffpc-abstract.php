@@ -33,6 +33,10 @@ if (!class_exists('WP_Plugins_Abstract')) {
 	 * @var string $slug_save URL slug to present saved state
 	 * @var string $slug_delete URL slug to present delete state
 	 * @var string $broadcast_url URL base of broadcast messages
+	 * @var string donation_business_id Business ID for donation form
+	 * @var string $donation_business_name Business name for donation form
+	 * @var string $donation_item_name Donation item name for donation form
+	 * @var string donation_business_id Business ID for donation form
 	 * @var string $broadcast_message Name of the file to get broadcast message from the web
 	 *
 	 */
@@ -58,6 +62,9 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		const slug_save = '&saved=true';
 		const slug_delete = '&deleted=true';
 		const broadcast_url = 'http://petermolnar.eu/broadcast/';
+		const donation_business_id = 'FA3NT7XDVHPWU';
+		protected $donation_business_name;
+		protected $donation_item_name;
 		protected $broadcast_message;
 
 		/**
@@ -86,6 +93,8 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			$this->button_save = $this->plugin_constant . '-save';
 			$this->button_delete = $this->plugin_constant . '-delete';
 			$this->broadcast_message = self::broadcast_url . $this->plugin_constant . '.message';
+			$this->donation_business_name = 'PeterMolnar_WordPressPlugins_' . $this->plugin_constant . '_HU';
+			$this->donation_item_name = $this->plugin_name;
 
 			/* we need network wide plugin check functions */
 			if ( ! function_exists( 'is_plugin_active_for_network' ) )
@@ -113,6 +122,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			if( is_admin() ) {
 				/* jquery ui tabs is provided by WordPress */
 				wp_enqueue_script ( "jquery-ui-tabs" );
+				wp_enqueue_script ( "jquery-ui-slider" );
 
 				/* additional admin styling */
 				$css_handle = $this->plugin_constant . '-admin-css';
@@ -442,5 +452,52 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				return $opt;
 		}
 
+
+
+		protected function plugin_donation_form () {
+
+			?>
+			<script>
+				jQuery(document).ready(function($) {
+					jQuery(function() {
+						var select = $( "#amount" );
+						var slider = $( '<div id="donation-slider"></div>' ).insertAfter( select ).slider({
+							min: 1,
+							max: 8,
+							range: "min",
+							value: select[ 0 ].selectedIndex + 1,
+							slide: function( event, ui ) {
+								select[ 0 ].selectedIndex = ui.value - 1;
+							}
+						});
+						$( "#amount" ).change(function() {
+							slider.slider( "value", this.selectedIndex + 1 );
+						});
+					});
+				});
+			</script>
+
+			<form action="https://www.paypal.com/cgi-bin/webscr" method="post" class="<?php echo $this->plugin_constant ?>-donation">
+				<label for="amount"><?php _e( "This plugin helped your business? I'd appreciate a coffee in return :) Please!", $this->plugin_constant ); ?></label>
+				<select name="amount" id="amount">
+					<option value="3">3$</option>
+					<option value="5">5$</option>
+					<option value="10">10$</option>
+					<option value="16">16$</option>
+					<option value="30">30$</option>
+					<option value="42">42$</option>
+					<option value="75">75$</option>
+					<option value="100">100$</option>
+				</select>
+				<input type="hidden" id="cmd" name="cmd" value="_donations" />
+				<input type="hidden" id="tax" name="tax" value="0" />
+				<input type="hidden" id="business" name="business" value="<?php echo self::donation_business_id ?>" />
+				<input type="hidden" id="bn" name="bn" value="<?php echo $this->donation_business_name ?>" />
+				<input type="hidden" id="item_name" name="item_name" value="<?php _e('Donation for ', $this->plugin_constant ); echo $this->donation_item_name ?>" />
+				<input type="hidden" id="currency_code" name="currency_code" value="USD" />
+				<input type="submit" name="submit" value="<?php _e('Donate via PayPal', $this->plugin_constant ) ?>" class="button-secondary" />
+			</form>
+			<?php
+		}
 	}
 }
