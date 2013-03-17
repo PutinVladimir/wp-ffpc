@@ -196,12 +196,21 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				header( "Location: ". $this->settings_link . self::slug_delete );
 			}
 
+			/* load additional moves */
+			$this->plugin_hook_admin_init();
+
 			/* get broadcast message, if available */
 			$this->broadcast_message = @file_get_contents( $this->broadcast_message );
 
 			/* add submenu to settings pages */
 			add_submenu_page( $this->settings_slug, $this->plugin_name . __( ' options' , $this->plugin_constant ), $this->plugin_name, $this->capability, $this->plugin_settings_page, array ( $this , 'plugin_admin_panel' ) );
 		}
+
+		/**
+		 * to be extended
+		 *
+		 */
+		abstract function plugin_hook_admin_init();
 
 		/**
 		 * callback function to add settings link to plugins page

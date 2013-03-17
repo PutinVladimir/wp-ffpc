@@ -32,7 +32,8 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		private $acache = '';
 		private $nginx_sample = '';
 		private $acache_backend = '';
-
+		const slug_flush = '&flushed=true';
+		private $button_flush;
 		protected $select_cache_type = array ();
 		protected $select_invalidation_method = array ();
 		protected $valid_cache_type = array ();
@@ -49,7 +50,10 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			$this->acache = WP_CONTENT_DIR . '/advanced-cache.php';
 			/* nginx sample config file */
 			$this->nginx_sample = $this->plugin_dir . $this->plugin_constant . '-nginx-sample.conf';
+			/* backend driver file */
 			$this->acache_backend = $this->plugin_dir . $this->plugin_constant . '-backend.php';
+			/* flush button identifier */
+			$this->button_flush = $this->plugin_constant . '-flush';
 
 			/* cache type possible values array */
 			$this->select_cache_type = array (
@@ -180,6 +184,13 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			<?php endif;
 
 			/**
+			 * if options were saved
+			 */
+			if ($_GET['flushed']=='true' || $this->status == 3) : ?>
+				<div class='updated settings-error'><p><strong><?php _e( "Cache flushed." , $this->plugin_constant ); ?></strong></p></div>
+			<?php endif;
+
+			/**
 			 * the admin panel itself
 			 */
 			?>
@@ -191,15 +202,15 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			<?php endif; ?>
 
 			<?php if ( ! @array_key_exists ( $this->global_config_key, $this->global_config ) ) : ?>
-				<div class="error"><p><?php _e("WARNING: plugin settings are not yet saved for the site, please save settings!", $this->plugin_constant); ?></p></div>
+				<div class="error"><p><?php _e("WARNING: plugin settings are not yet saved for the site, please save settings!", $this->plugin_constant); ?></p><p><?php _e( "Technical information: the configuration array is not present in the file " . $this->acache_config , $this->plugin_constant ) ?></p></div>
 			<?php endif; ?>
 
 			<?php if ( ! file_exists ( $this->acache ) ) : ?>
-				<div class="error"><p><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", $this->plugin_constant); ?></p></div>
+				<div class="error"><p><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", $this->plugin_constant); ?></p><p><?php _e( "Technical information: please check if location is writable: " . $this->acache , $this->plugin_constant ) ?></p></div>
 			<?php endif; ?>
 
 			<?php if ( ! file_exists ( $this->acache_config ) ) : ?>
-				<div class="error"><p><?php _e("WARNING: advanced cache configuration file is yet to be generated, please save settings!", $this->plugin_constant); ?></p></div>
+				<div class="error"><p><?php _e("WARNING: advanced cache configuration file is yet to be generated, please save settings!", $this->plugin_constant); ?></p><p><?php _e( "Technical information: please check is location is writable: " . $this->acache_config , $this->plugin_constant ) ?></p></div>
 			<?php endif; ?>
 
 			<?php if ( $this->options['cache_type'] == 'memcached' && !class_exists('Memcached') ) : ?>
@@ -455,11 +466,25 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				<p class="clear">
 					<input class="button-primary" type="submit" name="<?php echo $this->button_save ?>" id="<?php echo $this->button_save ?>" value="<?php _e('Save Changes', $this->plugin_constant ) ?>" />
 					<input class="button-secondary" style="float: right" type="submit" name="<?php echo $this->button_delete ?>" id="<?php echo $this->button_delete ?>" value="<?php _e('Delete options from DB', $this->plugin_constant ) ?>" />
+					<input class="button-secondary" style="float: right" type="submit" name="<?php echo $this->button_flush ?>" id="<?php echo $this->button_flush ?>" value="<?php _e('Clear cache', $this->plugin_constant ) ?>" />
 				</p>
 
 			</form>
 			</div>
 			<?php
+		}
+
+		/**
+		 * extending admin init
+		 *
+		 */
+		public function plugin_hook_admin_init () {
+			/* save parameter updates, if there are any */
+			if ( isset( $_POST[ $this->button_flush ] ) ) {
+				$this->backend->clear();
+				$this->status = 3;
+				header( "Location: ". $this->settings_link . self::slug_flush );
+			}
 		}
 
 		/**
