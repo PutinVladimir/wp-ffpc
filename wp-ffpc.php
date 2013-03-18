@@ -1,18 +1,18 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Version: 0.7
 Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
 Description: WordPress cache plugin for memcached & nginx - unbeatable speed
-Author: Peter Molnar
+Version: 0.7
+Author: Peter Molnar <hello@petermolnar.eu>
 Author URI: http://petermolnar.eu/
-License: GPL2
+License: GPLv3
 */
 
-/*  Copyright 2010-2013 Peter Molnar  (email : hello@petermolnar.eu )
+/*  Copyright 2010-2013 Peter Molnar ( hello@petermolnar.eu )
 
     This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License, version 2, as
+    it under the terms of the GNU General Public License, version 3, as
     published by the Free Software Foundation.
 
     This program is distributed in the hope that it will be useful,
@@ -23,7 +23,6 @@ License: GPL2
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
 */
 
 include_once ( 'wp-ffpc-class.php' );

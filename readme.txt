@@ -5,6 +5,8 @@ Tags: cache, memcached, full page cache, NGiNX, memcache, page cache
 Requires at least: 3.0
 Tested up to: 3.5.1
 Stable tag: 0.7
+License: GPLv3
+License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
 Cache WordPress to memcached and serve them with NGiNX - unbeatable speed!
 
@@ -80,6 +82,7 @@ and **at least one** of the following for storage backend:
 = 0.7 =
 *in beta state*
 
+* Software licence change from GPLv2 to GPLv3
 * backend code completely replaced ( object-based backend, improved readability & better structure, lot less global vars, etc. )
 * revisited multisite support ( solved overwriting-problems )
 * preparations for localization support ( all strings are now go through WordPress translate except for advanced-cache logging, since there's no WordPress available at that point )
