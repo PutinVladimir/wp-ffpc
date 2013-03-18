@@ -311,7 +311,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 						<select name="invalidation_method" id="invalidation_method">
 							<?php $this->print_select_options ( $this->select_invalidation_method , $this->options['invalidation_method'] ) ?>
 						</select>
-						<span class="description"><?php _e('Select cache invalidation method. <p><strong>WARNING! When selection "all", the cache will be fully flushed, including elements that were set by other applications.</strong></p>', $this->plugin_constant); ?></span>
+						<span class="description"><?php _e('Select cache invalidation method. <p><strong>Be careful! Selecting "flush cache" will flush the whole cache, including elements that might have been set and used by other applications. Also, invalidating only the post will _not_ clear categories, archive and taxonomy pages, therefore only use this if refreshing after publish can wait until the entries expire on their own.</strong></p>', $this->plugin_constant); ?></span>
 						<span class="default"><?php $this->print_default ( 'invalidation_method' ); ?></span>
 					</dd>
 

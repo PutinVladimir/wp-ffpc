@@ -483,6 +483,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 							slider.slider( "value", this.selectedIndex + 1 );
 						});
 					});
+
 				});
 			</script>
 
@@ -491,8 +492,8 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				<select name="amount" id="amount">
 					<option value="3">3$</option>
 					<option value="5">5$</option>
-					<option value="10">10$</option>
-					<option value="16">16$</option>
+					<option value="10" selected="selected">10$</option>
+					<option value="15">15$</option>
 					<option value="30">30$</option>
 					<option value="42">42$</option>
 					<option value="75">75$</option>
