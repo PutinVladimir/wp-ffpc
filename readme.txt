@@ -1,49 +1,35 @@
 === WP-FFPC ===
 Contributors: cadeyrn
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
-Tags: cache, APC, memcache, memcached, page cache, full page cache, nginx
+Tags: cache, memcached, full page cache, NGiNX, memcache, page cache
 Requires at least: 3.0
 Tested up to: 3.5.1
-Stable tag: 0.6.1
+Stable tag: 1.0
+License: GPLv3
+License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
-Store WordPress pages in memcached and serve them with nginx - unbeatable speed!
+Cache WordPress to memcached and serve them with NGiNX - unbeatable speed!
 
 == Description ==
-WP-FFPC is a full page cache plugin for WordPress. Supports memcached server or APC as backend and both widely available PHP memcached modules, Memcache and Memcached as well.
-
-= Support & Info =
-I provide support for the plugin as best as I can, but it comes without guarantee.
-Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic").
-
-= Notice for versions before 0.6.1 =
-**from version 0.6.1 a lot of things have changed, including true multisite support ( possible per site different settings in a network ), rewritten memcached backend, etc. Please delete the previous settings by using the "delete options" button on the bottom right of the settings page after upgrading from previous versions.**
+WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress").
+Supports PHP Memcached, PHP Memcache and APC as storage engines.
 
 = Features: =
-* exclude possibilities: of home, feeds, archieves, pages, singles
-* possibility to enable caching for logged-in users
-* APC or memcached server storage
+* [NGiNX](http://NGiNX.org "NGiNX") compatibility
+* full Wordpress Network support
+* cache exclude possibilities ( home, feeds, archieves, pages, singles )
+* (optional) cache for logged-in users
 * 404 caching
-* redirects caching
-* Last Modified HTTP header compatibility with 304 responses
+* canonical redirects caching
+* Last Modified HTTP header support ( for 304 responses )
 * shortlink HTTP header preservation
-* pingback HTTP header preservation(1)
-* fallback to no caching if any error or problem occurs
-* syslog & debug settings for troubleshooting
-* supports multiple memcached backends
-* Wordpress Network compatible (2)
-* nginx compatible(3)
+* pingback HTTP header preservation
+* (optional) talkative log for troubleshooting
+* multiple memcached upstream support
 
-(1) pingback hostname will always be generated from the accessed domain, otherwise speed would get highly compromised
+Many thanks for supporters, testers & bug reporters: [Eric Gilette](http://www.ericgillette.com/ "Eric Gilette"); [doconeill](http://wordpress.org/support/profile/doconeill "doconeill"); [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow").
 
-(2) Plugin is capable of either Network wide or per site settings, meaning if not network-wide enabled, settings could vary from site to site, plugin could be turned off and on without interfering other sites.
-**Only for subdomain ( or different domain) setup**, subdirectory setup is not yet supported!
-
-(3) nginx compatility means that if used with PHP Memcache or PHP Memcached extension, the created memcached entries can be read and served directly from nginx.
-If used with APC, this feature is not available (no APC module for nginx).
-Short nginx example configuration is generated on the plugin settings page, under `nginx` tab according to the settings of the plugin.
-NOTE: some features ( most of additional HTTP headers for example, like pingback, shortlink, etc. ) will not be available with this solution! ( yet )
-
-Parts are based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") plugin by Satollo (info@satollo.net).
+Thanks for [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") for beeing inspirational.
 
 == Installation ==
 
@@ -55,13 +41,32 @@ Parts are based on [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache
 
 == Frequently Asked Questions ==
 
-= How to install memcache PHP extension? =
-On most of the distributions, php5-memcached or php5-memcache is available as package.
-You can use PECL alternatively: `pecl install memcached`.
-It's recommended to use Memcached instead of Memcache.
-
 = How to use the plugin on Amazon Linux? =
-You have to remove the default yum package, named `php-pecl-memcache` and install `Memcache` or `Memcached` through PECL.
+You have to remove the default yum package, named `php-pecl-memcache` and install `Memcached` through PECL.
+
+= Information: network wide settings always overwrite site settings =
+Since the plugin can be used as per-site configured in a network, if the plugin get network active later, the network settings will always overwrite the per site configuration.
+
+= Information: Log levels =
+Log levels ( if logging enabled ) includes info, warning and error level messages; error level most usually means PHP configuration error or missing plugin configuration.
+
+= Information: Using it with NGiNX =
+If the storage engine is either PHP Memcache or PHP Memcached extension, the created entries can be read and served directly from NGiNX ( if it has memcache or memc extension )
+A short configuration example is generated on the plugin settings page, under `NGiNX` tab according to the saved settings.
+**NOTE** Some features ( most of additional HTTP headers for example, like pingback, shortlink, etc. ) will not be available with this solution.
+
+= Information: Support & Info =
+I provide support for the plugin as best as I can, but it comes without guarantee.
+Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic").
+
+= PLugin requirements =
+* WordPress >= 3.0
+
+and **at least one** of the following for storage backend:
+* PHP APC
+* PHP Memcached > 0.1.0
+* PHP Memcache > 2.1.0
+
 
 == Screenshots ==
 
@@ -70,9 +75,31 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 3. cache exceptions
 4. apc settings
 5. memcached servers settings
-6. nginx example
+6. NGiNX example
 
 == Changelog ==
+
+= 1.0 =
+*in RC state*
+
+* Software licence change from GPLv2 to GPLv3
+* backend code completely replaced ( object-based backend, improved readability & better structure, lot less global vars, etc. )
+* revisited multisite support ( solved overwriting-problems )
+* preparations for localization support ( all strings are now go through WordPress translate except for advanced-cache logging, since there's no WordPress available at that point )
+* more and more detailed log & error messages
+* retouched Memcache initialization ( faster connect )
+
+**Bugfixes**
+* reported bug of faulty expiration times fixed
+* eliminated warning message for memcache when no memcache extension is present
+* fixed multisite settings overwriting issue
+
+**Dropped functions**
+* APC entry compression support
+
+**Planned features for next major release**
+* support for Redis backend
+* optional NGiNX header preservation for shortlink, pingback and last-modified headers
 
 = 0.6.1 =
 *2013.03.08*
@@ -135,7 +162,7 @@ There are major problems with the "memcache" driver, the source is yet unkown. T
 *2012.08.06*
 
 * tested against new WordPress versions
-* added lines to "memcached" storage to be able to work with nginx as well
+* added lines to "memcached" storage to be able to work with NGiNX as well
 * added lines to "memcached" to use binary protocol ( tested with PHP Memcached version 2.0.1 )
 
 **KNOWN ISSUES**
@@ -156,7 +183,7 @@ There are major problems with the "memcache" driver, the source is yet unkown. T
 = 0.2.3 =
 *2012.02.21*
 
-* nginx-sample.conf file added, nginx config is created from here
+* NGiNX-sample.conf file added, NGiNX config is created from here
 
 = 0.2.2 =
 *2012.02.21*
