@@ -12,11 +12,11 @@ Cache WordPress to memcached and serve them with NGiNX - unbeatable speed!
 
 == Description ==
 WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress").
-Supports PHP Memcached, PHP Memcache and APC as storage engines.
+Supports PHP Memcached, PHP Memcache and APC as storage engines, subdomain and domain based WordPress Networks and can be connected with [NGiNX](http://NGiNX.org "NGiNX") webserver.
 
 = Features: =
 * [NGiNX](http://NGiNX.org "NGiNX") compatibility
-* full Wordpress Network support
+* Wordpress Network support ( for subdomain layout )
 * cache exclude possibilities ( home, feeds, archieves, pages, singles )
 * (optional) cache for logged-in users
 * 404 caching
@@ -66,7 +66,6 @@ and **at least one** of the following for storage backend:
 * PHP APC
 * PHP Memcached > 0.1.0
 * PHP Memcache > 2.1.0
-
 
 == Screenshots ==
 
