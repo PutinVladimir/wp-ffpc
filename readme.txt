@@ -84,20 +84,24 @@ and **at least one** of the following for storage backend:
 
 * Software licence change from GPLv2 to GPLv3
 * backend code completely replaced ( object-based backend, improved readability & better structure, lot less global vars, etc. )
+* added proper uninstall ( uninstall hook was not removing options from DB, uninstall.php will )
 * revisited multisite support ( solved overwriting-problems )
 * preparations for localization support ( all strings are now go through WordPress translate except for advanced-cache logging, since there's no WordPress available at that point )
 * more and more detailed log & error messages
-* retouched Memcache initialization ( faster connect )
+* retouched Memcache initialization ( faster connect, cleaner persistent connections )
 
 **Bugfixes**
+
 * reported bug of faulty expiration times fixed
 * eliminated warning message for memcache when no memcache extension is present
 * fixed multisite settings overwriting issue
 
 **Dropped functions**
+
 * APC entry compression support
 
 **Planned features for next major release**
+
 * support for Redis backend
 * optional NGiNX header preservation for shortlink, pingback and last-modified headers
 
