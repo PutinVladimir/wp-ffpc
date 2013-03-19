@@ -81,7 +81,6 @@ if (!class_exists('WP_Plugins_Abstract')) {
 
 			$this->plugin_constant = $plugin_constant;
 
-
 			$this->plugin_url = $this->replace_if_ssl ( WP_PLUGIN_URL ) . '/' . $this->plugin_constant . '/';
 			$this->plugin_dir = WP_PLUGIN_DIR. '/' . $this->plugin_constant . '/';
 			$this->plugin_file = $this->plugin_constant . '/' . $this->plugin_constant . '.php';
@@ -112,11 +111,14 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			/* set the settings page link string */
 			$this->settings_link = $this->settings_slug . '?page=' .  $this->plugin_settings_page;
 
+			/* initialize plugin, plugin specific init functions */
+			$this->plugin_init();
+
 			/* get the options */
 			$this->plugin_options_read();
 
-			/* initialize plugin, plugin specific init functions */
-			$this->plugin_init();
+			/* setup plugin, plugin specific setup functions that need options */
+			$this->plugin_setup();
 
 			/* add admin styling */
 			if( is_admin() ) {
@@ -168,9 +170,15 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		abstract function plugin_uninstall();
 
 		/**
-		 * init hook function, to be extended, runs before admin panel hook & theming activated
+		 * first init hook function, to be extended, before options were read
 		 */
 		abstract function plugin_init();
+
+		/**
+		 * second init hook function, to be extended, after options were read
+		 */
+		abstract function plugin_setup();
+
 
 		/**
 		 * admin panel, the HTML usually
@@ -228,7 +236,11 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 * deletes saved options from database
 		 */
 		protected function plugin_options_delete () {
-			delete_site_option( $this->plugin_constant );
+			/* get the currently saved options */
+			if ( $this->network )
+				delete_site_option( $this->plugin_constant );
+			else
+				delete_option( $this->plugin_constant );
 
 			/* additional moves */
 			$this->plugin_hook_options_delete();
@@ -244,7 +256,10 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 */
 		protected function plugin_options_read () {
 			/* get the currently saved options */
-			$options = get_site_option( $this->plugin_constant );
+			if ( $this->network )
+				$options = get_site_option( $this->plugin_constant );
+			else
+				$options = get_option( $this->plugin_constant );
 
 			/* this is the point to make any migrations from previous versions */
 			$this->plugin_hook_options_migrate( $options );
@@ -259,6 +274,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				if ( !@array_key_exists( $key, $this->defaults ) )
 					unset ( $options[$key] );
 
+			/* any additional read hook */
 			$this->plugin_hook_options_read( $options );
 
 			$this->options = $options;
@@ -321,7 +337,10 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			$this->plugin_hook_options_save( $activating );
 
 			/* save options to database */
-			update_site_option( $this->plugin_constant , $this->options );
+			if ( $this->network )
+				update_site_option( $this->plugin_constant , $this->options );
+			else
+				update_option( $this->plugin_constant , $this->options );
 		}
 
 		/**

@@ -24,26 +24,26 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		const host_separator  = ',';
 		const port_separator  = ':';
 		const donation_id_key = 'hosted_button_id=';
-		private $global_config_var = '$wp_ffpc_config';
+		const global_config_var = '$wp_ffpc_config';
+		const slug_flush = '&flushed=true';
+		private $global_option = '';
 		private $global_config_key = '';
 		private $global_config = array();
-		private $acache_config = '';
+		private $global_saved = false;
 		private $acache_worker = '';
 		private $acache = '';
 		private $nginx_sample = '';
 		private $acache_backend = '';
-		const slug_flush = '&flushed=true';
 		private $button_flush;
 		protected $select_cache_type = array ();
 		protected $select_invalidation_method = array ();
 		protected $valid_cache_type = array ();
 
+
 		/**
-		 * init hook function runs before admin panel hook & themeing activated
+		 * init hook function runs before admin panel hook, themeing and options read
 		 */
 		public function plugin_init() {
-			/* configuration file: will store global config array */
-			$this->acache_config = $this->plugin_dir . $this->plugin_constant . '-config.php';
 			/* advanced cache "worker" file */
 			$this->acache_worker = $this->plugin_dir . $this->plugin_constant . '-acache.php';
 			/* WordPress advanced-cache.php file location */
@@ -54,6 +54,14 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			$this->acache_backend = $this->plugin_dir . $this->plugin_constant . '-backend.php';
 			/* flush button identifier */
 			$this->button_flush = $this->plugin_constant . '-flush';
+			/* global options identifier */
+			$this->global_option = $this->plugin_constant . '-global';
+
+			/* set global config key; here, because it's needed for migration */
+			if ( $this->network )
+				$this->global_config_key = 'network';
+			else
+				$this->global_config_key = $_SERVER['HTTP_HOST'];
 
 			/* cache type possible values array */
 			$this->select_cache_type = array (
@@ -73,6 +81,14 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				0 => __( 'flush cache' , $this->plugin_constant ),
 				1 => __( 'only modified post' , $this->plugin_constant ),
 			);
+
+		}
+
+		/**
+		 * additional init, steps that needs the plugin  options
+		 *
+		 */
+		public function plugin_setup () {
 
 			/* initiate backend */
 			$this->backend = new WP_FFPC_Backend ( $this->options );
@@ -94,10 +110,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			add_action( 'deleted_post', array( $this->backend , 'clear' ), 0 );
 			add_action( 'edit_post', array( $this->backend , 'clear' ), 0 );
 
-			/* read current global config */
-			if ( file_exists ( $this->acache_config ))
-				eval ( '$this->global_config = ' . file_get_contents ( $this->acache_config ) . ';' );
-
 			/* add filter for catching canonical redirects */
 			add_filter('redirect_canonical', 'wp_ffpc_redirect_callback', 10, 2);
 
@@ -115,28 +127,20 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 */
 		public function plugin_deactivate () {
 			/* remove current site config from global config */
-			$this->update_acache_config( true );
-
-			/* if we're not in a network or no active site left, remove the advanced cache and the config, just in case */
-			if ( ! $this->network || empty ( $this->global_config ) ) {
-				$this->plugin_uninstall ( false );
-			}
-
+			$this->update_global_config( true );
 		}
 
 		/**
 		 * uninstall hook function, to be extended
 		 */
 		public function plugin_uninstall( $delete_options = true ) {
-
-			/* delete plugin config array file */
-			unlink ( $this->acache_config );
 			/* delete advanced-cache.php file */
 			unlink ( $this->acache );
 
 			/* delete site settings */
-			if ( $delete_options )
+			if ( $delete_options ) {
 				$this->plugin_options_delete ();
+			}
 		}
 
 		/**
@@ -201,16 +205,12 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				<div class="error"><p><?php _e("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ); ?></p></div>
 			<?php endif; ?>
 
-			<?php if ( ! @array_key_exists ( $this->global_config_key, $this->global_config ) ) : ?>
-				<div class="error"><p><?php _e("WARNING: plugin settings are not yet saved for the site, please save settings!", $this->plugin_constant); ?></p><p><?php _e( "Technical information: the configuration array is not present in the file " . $this->acache_config , $this->plugin_constant ) ?></p></div>
+			<?php if ( ! $this->global_saved ) : ?>
+				<div class="error"><p><?php _e("WARNING: plugin settings are not yet saved for the site, please save settings!", $this->plugin_constant); ?></p><p><?php _e( "Technical information: the configuration array is not present in the global configuration." , $this->plugin_constant ) ?></p></div>
 			<?php endif; ?>
 
 			<?php if ( ! file_exists ( $this->acache ) ) : ?>
 				<div class="error"><p><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", $this->plugin_constant); ?></p><p><?php _e( "Technical information: please check if location is writable: " . $this->acache , $this->plugin_constant ) ?></p></div>
-			<?php endif; ?>
-
-			<?php if ( ! file_exists ( $this->acache_config ) ) : ?>
-				<div class="error"><p><?php _e("WARNING: advanced cache configuration file is yet to be generated, please save settings!", $this->plugin_constant); ?></p><p><?php _e( "Technical information: please check is location is writable: " . $this->acache_config , $this->plugin_constant ) ?></p></div>
 			<?php endif; ?>
 
 			<?php if ( $this->options['cache_type'] == 'memcached' && !class_exists('Memcached') ) : ?>
@@ -498,7 +498,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				$this->backend->clear();
 
 			/* create the to-be-included configuration for advanced-cache.php */
-			$this->update_acache_config();
+			$this->update_global_config();
 
 			/* create advanced cache file, needed only once or on activation, because there could be lefover advanced-cache.php from different plugins */
 			if (  !$activating )
@@ -510,12 +510,21 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 * read hook; needs to be implemented
 		 */
 		public function plugin_hook_options_read( &$options ) {
+			/* read the global options, network compatibility */
+			$this->global_config = get_site_option( $this->global_option );
+
+			/* check if current site present in global config */
+			if ( !empty ( $this->global_config[ $this->global_config_key ] ) )
+				$this->global_saved = true;
+
+			$this->global_config[ $this->global_config_key ] = $options;
 		}
 
 		/**
 		 * options delete hook; needs to be implemented
 		 */
 		public function plugin_hook_options_delete(  ) {
+			delete_site_option ( $this->global_option );
 		}
 
 		/**
@@ -523,11 +532,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 *
 		 */
 		public function plugin_hook_options_migrate( &$options ) {
-			/* set global config key; here, because it's needed for migration */
-			if ( $this->network )
-				$this->global_config_key = 'network';
-			else
-				$this->global_config_key = $_SERVER['HTTP_HOST'];
 
 			if ( $options['version'] != $this->plugin_version || !isset ( $options['version'] ) ) {
 
@@ -571,14 +575,15 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			if ( @file_exists( $this->acache ))
 				return false;
 
+			/* if no active site left no need for advanced cache :( */
+			if ( empty ( $this->global_config ) )
+				return false;
+
 			/* add the required includes and generate the needed code */
 			$string[] = "<?php";
-			$string[] = $this->global_config_var . ' = ' . var_export ( $this->global_config, true ) . ';' ;
-			//$string[] = "eval ( '". $this->global_config_var ." = ' . file_get_contents ( '" . $this->acache_config . "' ) . ';' );";
-			//$string[] = 'global '. $this->global_config_var . ';';
+			$string[] = self::global_config_var . ' = ' . var_export ( $this->global_config, true ) . ';' ;
 			$string[] = "include_once ('" . $this->acache_backend . "');";
 			$string[] = "include_once ('" . $this->acache_worker . "');";
-
 			$string[] = "?>";
 
 			/* write the file and start caching from this point */
@@ -626,7 +631,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 * @param boolean $remove_site Bool to remove or add current config to global
 		 *
 		 */
-		private function update_acache_config ( $remove_site = false ) {
+		private function update_global_config ( $remove_site = false ) {
 
 			/* remove or add current config to global config */
 			if ( $remove_site ) {
@@ -639,9 +644,8 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/* deploy advanced-cache.php */
 			$this->deploy_acache ();
 
-			/* write config file */
-			return file_put_contents( $this->acache_config , var_export( $this->global_config , true ) );
-
+			/* save options to database */
+			update_site_option( $this->global_option , $this->global_config );
 		}
 
 	}
