@@ -36,12 +36,12 @@ if (!class_exists('WP_FFPC_Backend')) {
 		const prefix = 'prefix-';
 		const host_separator  = ',';
 		const port_separator  = ':';
-		private $key_prefixes = array ( 'meta', 'data' );
 
+		private $key_prefixes = array ( 'meta', 'data' );
 		private $connection = NULL;
 		private $options;
 		private $alive = false;
-		public $status;
+		private $status;
 
 		/**
 		* constructor
@@ -192,11 +192,13 @@ if (!class_exists('WP_FFPC_Backend')) {
 			else
 				$protocol = 'http://';
 
+			/* elements to clear */
 			$to_clear = array (
 				$this->options['prefix-meta'] . $protocol . $path,
 				$this->options['prefix-data'] . $protocol . $path,
 			);
 
+			/* delete entries */
 			$internal = $this->proxy ( 'clear' );
 			$this->$internal ( $to_clear );
 		}
@@ -299,7 +301,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 					if ( function_exists( 'syslog' ) )
 						syslog( $log_level , self::plugin_constant . " with " . $this->options['cache_type'] . ' ' . $message );
 					/* error level is real problem, needs to be displayed on the admin panel */
-					throw new Exception ( $message );
+					//throw new Exception ( $message );
 				break;
 				default:
 					if ( function_exists( 'syslog' ) && $this->options['debug'] )
@@ -423,7 +425,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 
 				/* use binary and not compressed format, good for nginx and still fast */
 				$this->connection->setOption( Memcached::OPT_COMPRESSION , false );
-				//$this->connection->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
+				$this->connection->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
 			}
 
 			/* check if initialization was success or not */
@@ -652,12 +654,10 @@ if (!class_exists('WP_FFPC_Backend')) {
 			foreach ( $keys as $key ) {
 				$kresult = $this->connection->delete( $key );
 
-				if ( $kresult === false )
-				{
+				if ( $kresult === false ) {
 					$this->log ( __translate__('unable to delete entry ', self::plugin_constant ) . $key );
 				}
-				else
-				{
+				else {
 					$this->log ( __translate__( 'entry deleted: ', self::plugin_constant ) . $key );
 				}
 			}

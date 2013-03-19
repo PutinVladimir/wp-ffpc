@@ -511,7 +511,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			/* create advanced cache file, needed only once or on activation, because there could be lefover advanced-cache.php from different plugins */
 			if (  !$activating )
-				$this->deploy_acache();
+				$this->deploy_advanced_cache();
 
 		}
 
@@ -574,7 +574,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 * advanced-cache.php creator function
 		 *
 		 */
-		private function deploy_acache( ) {
+		private function deploy_advanced_cache( ) {
 
 			/* in case advanced-cache.php was already there, remove it */
 			if ( @file_exists( $this->acache ))
@@ -651,7 +651,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			}
 
 			/* deploy advanced-cache.php */
-			$this->deploy_acache ();
+			$this->deploy_advanced_cache ();
 
 			/* save options to database */
 			update_site_option( $this->global_option , $this->global_config );

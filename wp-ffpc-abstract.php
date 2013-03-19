@@ -44,6 +44,11 @@ if (!class_exists('WP_Plugins_Abstract')) {
 	 */
 	abstract class WP_Plugins_Abstract {
 
+		const slug_save = '&saved=true';
+		const slug_delete = '&deleted=true';
+		const broadcast_url = 'http://petermolnar.eu/broadcast/';
+		const donation_business_id = 'FA3NT7XDVHPWU';
+
 		protected $plugin_constant;
 		protected $options = array();
 		protected $defaults = array();
@@ -60,11 +65,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		protected $donation_link;
 		protected $button_save;
 		protected $button_delete;
-		public $capability = 10;
-		const slug_save = '&saved=true';
-		const slug_delete = '&deleted=true';
-		const broadcast_url = 'http://petermolnar.eu/broadcast/';
-		const donation_business_id = 'FA3NT7XDVHPWU';
+		protected $capability = 10;
 		protected $donation_business_name;
 		protected $donation_item_name;
 		protected $broadcast_message;
@@ -181,14 +182,13 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 */
 		abstract function plugin_setup();
 
-
 		/**
 		 * admin panel, the HTML usually
 		 */
 		abstract function plugin_admin_panel();
 
 		/**
-		 * admin init: save/delete setting, add admin panel call hook
+		 * admin init called by WordPress add_action, needs to be public
 		 */
 		public function plugin_admin_init() {
 
@@ -283,14 +283,14 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		}
 
 		/**
-		 * hook to add functionality into plugin_options_read
-		 */
-		abstract function plugin_hook_options_read ( &$options );
-
-		/**
-		 * hook for parameter migration
+		 * hook for parameter migration, runs right after options read from DB
 		 */
 		abstract function plugin_hook_options_migrate( &$options );
+
+		/**
+		 * hook to add functionality into plugin_options_read, runs after defaults check
+		 */
+		abstract function plugin_hook_options_read ( &$options );
 
 		/**
 		 * used on update and to save current options to database
@@ -482,8 +482,10 @@ if (!class_exists('WP_Plugins_Abstract')) {
 				return $opt;
 		}
 
-
-
+		/**
+		 * creates PayPal donation form based on plugin details & hardcoded business ID
+		 *
+		 */
 		protected function plugin_donation_form () {
 
 			?>
@@ -504,7 +506,6 @@ if (!class_exists('WP_Plugins_Abstract')) {
 							slider.slider( "value", this.selectedIndex + 1 );
 						});
 					});
-
 				});
 			</script>
 

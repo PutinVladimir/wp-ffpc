@@ -81,6 +81,7 @@ and **at least one** of the following for storage backend:
 = 1.0 =
 *in RC state*
 
+* plugin development using [GitHub repository](https://github.com/petermolnar/wp-ffpc "GitHub repository") from this version; WordPress SVN only for releases
 * Software licence change from GPLv2 to GPLv3
 * backend code completely replaced ( object-based backend, improved readability & better structure, lot less global vars, etc. )
 * added proper uninstall ( uninstall hook was not removing options from DB, uninstall.php will )

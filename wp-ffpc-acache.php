@@ -76,13 +76,11 @@ $wp_ffpc_values = array();
 foreach ( $wp_ffpc_keys as $key ) {
 	$value = $wp_ffpc_backend->get ( $wp_ffpc_backend->key ( $key ) );
 
-	if ( ! $value )
-	{
+	if ( ! $value ) {
 		wp_ffpc_start();
 		return;
 	}
-	else
-	{
+	else {
 		$wp_ffpc_values[ $key ] = $value;
 	}
 }
@@ -230,14 +228,12 @@ function wp_ffpc_callback( $buffer ) {
 		if made with archieve, last listed post can make this go bad
 	*/
 	global $post;
-	if ( !empty($post) && ( $meta['type'] == 'single' || $meta['type'] == 'page' ) && !empty ( $post->post_modified_gmt ) )
-	{
+	if ( !empty($post) && ( $meta['type'] == 'single' || $meta['type'] == 'page' ) && !empty ( $post->post_modified_gmt ) ) {
 		/* get last modification data */
 		$meta['lastmodified'] = strtotime ( $post->post_modified_gmt );
 
 		/* get shortlink, if possible */
-		if (function_exists('wp_get_shortlink'))
-		{
+		if (function_exists('wp_get_shortlink')) {
 			$shortlink = wp_get_shortlink( );
 			if (!empty ( $shortlink ) )
 				$meta['shortlink'] = $shortlink;
@@ -254,13 +250,11 @@ function wp_ffpc_callback( $buffer ) {
 		if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' )
 			$_SERVER['HTTPS'] = 'on';
 
-		if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) )
-		{
+		if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) ) {
 			$sync_from = 'http://' . $_SERVER['SERVER_NAME'];
 			$sync_to = 'https://' . $_SERVER['SERVER_NAME'];
 		}
-		else
-		{
+		else {
 			$sync_from = 'https://' . $_SERVER['SERVER_NAME'];
 			$sync_to = 'http://' . $_SERVER['SERVER_NAME'];
 		}

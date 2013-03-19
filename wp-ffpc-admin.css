@@ -120,7 +120,7 @@
 	background: #f1f1f1;
 }
 
-.ui-slider .ui-slider-handle {
+.wp-ffpc-donation .ui-slider .ui-slider-handle {
 	position: absolute;
 	z-index: 2;
 	width: 1.2em;
@@ -137,5 +137,4 @@
 	background-image: -o-linear-gradient(bottom,#ececec,#f9f9f9);
 	background-image: linear-gradient(to top,#ececec,#f9f9f9);
 	outline: none;
-
 }
