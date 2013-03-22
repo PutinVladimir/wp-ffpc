@@ -1,14 +1,14 @@
 === WP-FFPC ===
 Contributors: cadeyrn
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
-Tags: cache, memcached, full page cache, NGiNX, memcache, page cache
+Tags: cache, page cache, full page cache, nginx, memcached, apc, speed, fast
 Requires at least: 3.0
 Tested up to: 3.5.1
 Stable tag: 1.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
-Cache WordPress to memcached and serve them with NGiNX - unbeatable speed!
+Fastest way of cache for WordPress: memcached + nginx!
 
 == Description ==
 WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress").
@@ -39,10 +39,34 @@ Thanks for [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper 
 4. Check the settings in `Settings` ( site or Network Admin, depending on activation wideness ) -> `WP-FFPC` menu in WordPress.
 5. Save the settings. THIS STEP IS MANDATORY: without saving the settings, there will be no activated caching!
 
+= Using the plugin with NGiNX =
+If the storage engine is either PHP Memcache or PHP Memcached extension, the created entries can be read and served directly from NGiNX ( if it has memcache or memc extension )
+A short configuration example is generated on the plugin settings page, under `NGiNX` tab according to the saved settings.
+**NOTE:** Some features ( most of additional HTTP headers for example, like pingback, shortlink, etc. ) will not be available with this solution.
+
 == Frequently Asked Questions ==
 
 = How to use the plugin on Amazon Linux? =
 You have to remove the default yum package, named `php-pecl-memcache` and install `Memcached` through PECL.
+
+= How to use the plugin in a WordPress Network =
+From version 1.0, the plugin supports subdomain based WordPress Network with possible different per site cache settings. If the plugin is network active, obviously the network wide settings will be used for all of the sites. If it's activated only on some of the sites, the other will not be affected and even the cache storage backend can be different from site to site.
+
+= What are the plugin's requirements? =
+* WordPress >= 3.0
+
+and **at least one** of the following for storage backend:
+* PHP APC
+* PHP Memcached > 0.1.0
+* PHP Memcache > 2.1.0
+
+= How logging works in the plugin? =
+Log levels ( if logging enabled ) includes warning and error level messages; error level most usually means PHP configuration error or missing plugin configuration.
+Additional info level log is available as additional setting, but if log is disabled, so will info log as well.
+All logs use syslog() PHP function, therefore it's presence is mandatory for loggin functionality.
+
+= How can I contribute? =
+In order to make contributions a lot easier, I've moved the plugin development to [GitHub](https://github.com/petermolnar/wp-ffpc "GitHub"), feel free to fork and put shiny, new things in it and get in touch with me [hello@petermolnar.eu](mailto:hello@petermolnar.eu "hello@petermolnar.eu") when you have it ready.
 
 == Screenshots ==
 
@@ -180,31 +204,6 @@ There are major problems with the "memcache" driver, the source is yet unkown. T
 *2012.02.16*
 
 * first public release
-
-== Information ==
-
-= Using the plugin in a WordPress Network =
-From version 1.0, the plugin supports subdomain based WordPress Network with possible different per site cache settings. If the plugin is network active, obviously the network wide settings will be used for all of the sites. If it's activated only on some of the sites, the other will not be affected and even the cache storage backend can be different from site to site.
-
-= Log levels =
-Log levels ( if logging enabled ) includes warning and error level messages; error level most usually means PHP configuration error or missing plugin configuration.
-Additional info level log is available as additional setting, but if log is disabled, so will info log as well.
-
-= Using the plugin with NGiNX =
-If the storage engine is either PHP Memcache or PHP Memcached extension, the created entries can be read and served directly from NGiNX ( if it has memcache or memc extension )
-A short configuration example is generated on the plugin settings page, under `NGiNX` tab according to the saved settings.
-**NOTE:** Some features ( most of additional HTTP headers for example, like pingback, shortlink, etc. ) will not be available with this solution.
-
-= Contribution =
-In order to make contributions a lot easier, I've moved the plugin development to [GitHub](https://github.com/petermolnar/wp-ffpc "GitHub"), feel free to fork and put shiny, new things in it.
-
-= Requirements =
-* WordPress >= 3.0
-
-and **at least one** of the following for storage backend:
-* PHP APC
-* PHP Memcached > 0.1.0
-* PHP Memcache > 2.1.0
 
 == Support ==
 I provide support for the plugin as best as I can, but it comes without guarantee.
