@@ -15,15 +15,9 @@
 	visibility: hidden;
 }
 
-.plugin-admin .default {
-	display:block;
-	padding-left: 1em;
-	font-size:90%;
-	color:#666;
-}
-
 .plugin-admin .description {
-	display:block;
+	display: block;
+	padding-top: 0.3em;
 }
 
 .plugin-admin .tabs {

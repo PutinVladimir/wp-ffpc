@@ -292,7 +292,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 							<?php $this->print_select_options ( $this->select_cache_type , $this->options['cache_type'], $this->valid_cache_type ) ?>
 						</select>
 						<span class="description"><?php _e('Select backend storage driver', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'cache_type' ); ?></span>
 					</dd>
 
 					<dt>
@@ -301,7 +300,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="number" name="expire" id="expire" value="<?php echo $this->options['expire']; ?>" />
 						<span class="description"><?php _e('Sets validity time of entry in milliseconds', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'expire' ); ?></span>
 					</dd>
 
 					<dt>
@@ -310,7 +308,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="text" name="charset" id="charset" value="<?php echo $this->options['charset']; ?>" />
 						<span class="description"><?php _e('Charset of HTML and XML (pages and feeds) data.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'charset' ); ?></span>
 					</dd>
 
 					<dt>
@@ -321,7 +318,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 							<?php $this->print_select_options ( $this->select_invalidation_method , $this->options['invalidation_method'] ) ?>
 						</select>
 						<span class="description"><?php _e('Select cache invalidation method. <p><strong>Be careful! Selecting "flush cache" will flush the whole cache, including elements that might have been set and used by other applications. Also, invalidating only the post will _not_ clear categories, archive and taxonomy pages, therefore only use this if refreshing after publish can wait until the entries expire on their own.</strong></p>', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'invalidation_method' ); ?></span>
 					</dd>
 
 					<dt>
@@ -330,7 +326,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="text" name="prefix_data" id="prefix_data" value="<?php echo $this->options['prefix_data']; ?>" />
 						<span class="description"><?php _e('Prefix for HTML content keys, can be used in nginx.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'prefix_data' ); ?></span>
 					</dd>
 
 					<dt>
@@ -339,7 +334,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="text" name="prefix_meta" id="prefix_meta" value="<?php echo $this->options['prefix_meta']; ?>" />
 						<span class="description"><?php _e('Prefix for meta content keys, used only with PHP processing.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'prefix_meta' ); ?></span>
 					</dd>
 				</dl>
 				</fieldset>
@@ -353,7 +347,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="log" id="log" value="1" <?php checked($this->options['log'],true); ?> />
 						<span class="description"><?php _e('Enables ERROR and WARNING level syslog messages. Requires PHP syslog function.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'log' ); ?></span>
 					</dd>
 
 					<dt>
@@ -362,7 +355,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="log_info" id="log_info" value="1" <?php checked($this->options['log_info'],true); ?> />
 						<span class="description"><?php _e('Enables INFO level messages; carefull, plugin is really talkative. Requires PHP syslog function.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'log_info' ); ?></span>
 					</dd>
 
 					<dt>
@@ -371,7 +363,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="response_header" id="response_header" value="1" <?php checked($this->options['response_header'],true); ?> />
 						<span class="description"><?php _e('Add X-Cache-Engine HTTP header to HTTP responses.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'response_header' ); ?></span>
 					</dd>
 
 					<dt>
@@ -380,7 +371,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="sync_protocols" id="sync_protocols" value="1" <?php checked($this->options['sync_protocols'],true); ?> />
 						<span class="description"><?php _e('Enable to replace every protocol to the same as in the request for site\'s domain', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'sync_protocols' ); ?></span>
 					</dd>
 
 				</dl>
@@ -395,7 +385,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="cache_loggedin" id="cache_loggedin" value="1" <?php checked($this->options['cache_loggedin'],true); ?> />
 						<span class="description"><?php _e('Cache pages even if user is logged in.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'cache_loggedin' ); ?></span>
 					</dd>
 
 					<dt>
@@ -404,7 +393,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="nocache_home" id="nocache_home" value="1" <?php checked($this->options['nocache_home'],true); ?> />
 						<span class="description"><?php _e('Exclude home page from caching', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'nocache_home' ); ?></span>
+
 					</dd>
 
 					<dt>
@@ -413,7 +402,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="nocache_feed" id="nocache_feed" value="1" <?php checked($this->options['nocache_feed'],true); ?> />
 						<span class="description"><?php _e('Exclude feeds from caching.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'nocache_feed' ); ?></span>
 					</dd>
 
 					<dt>
@@ -422,7 +410,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="nocache_archive" id="nocache_archive" value="1" <?php checked($this->options['nocache_archive'],true); ?> />
 						<span class="description"><?php _e('Exclude archives from caching.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'nocache_archive' ); ?></span>
 					</dd>
 
 					<dt>
@@ -431,7 +418,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="nocache_single" id="nocache_single" value="1" <?php checked($this->options['nocache_single'],true); ?> />
 						<span class="description"><?php _e('Exclude singles from caching.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'nocache_single' ); ?></span>
 					</dd>
 
 					<dt>
@@ -440,7 +426,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="nocache_page" id="nocache_page" value="1" <?php checked($this->options['nocache_page'],true); ?> />
 						<span class="description"><?php _e('Exclude pages from caching.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'nocache_page' ); ?></span>
 					</dd>
 				</dl>
 				</fieldset>
@@ -454,7 +439,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="text" name="hosts" id="hosts" value="<?php echo $this->options['hosts']; ?>" />
 						<span class="description"><?php _e('List all valid like host:port,host:port,... <br />No spaces are allowed, please stick to use ":" for separating host and port and "," for separating entries. Do not add trailing ",".', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'hosts' ); ?></span>
 					</dd>
 					<dt>
 						<label for="persistent"><?php _e('Persistent memcache connections', $this->plugin_constant); ?></label>
@@ -462,7 +446,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="persistent" id="persistent" value="1" <?php checked($this->options['persistent'],true); ?> />
 						<span class="description"><?php _e('Make all memcache(d) connections persistent. Be carefull with this setting, always test the outcome.', $this->plugin_constant); ?></span>
-						<span class="default"><?php $this->print_default ( 'persistent' ); ?></span>
 					</dd>
 				</dl>
 				</fieldset>
@@ -555,18 +538,22 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				/* updating from version 0.4.x */
 				if ( !empty ( $options['host'] ) ) {
 					$options['hosts'] = $options['host'] . ':' . $options['port'];
+					/* renamed options */
+					$options['log'] = $options['syslog'];
+					$options['response_header'] = $options['debug'];
 				}
 				/* migrating from version 0.6.x */
 				elseif ( is_array ( $options ) && array_key_exists ( $this->global_config_key , $options ) ) {
 					$options = $options[ $this->global_config_key ];
+					/* renamed options */
+					$options['log'] = $options['syslog'];
+					$options['response_header'] = $options['debug'];
 				}
 				/* migrating from something, drop previous config */
 				else {
 					$options = array();
 				}
-				/* renamed options */
-				$options['log'] = $options['syslog'];
-				$options['response_header'] = $options['debug'];
+
 			}
 		}
 
