@@ -55,7 +55,7 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 == Changelog ==
 
 = 1.0 =
-*in RC state*
+*2013.03.22*
 
 * plugin development using [GitHub repository](https://github.com/petermolnar/wp-ffpc "GitHub repository") from this version
 * Software licence change from GPLv2 to GPLv3
@@ -69,17 +69,13 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 
 **Bugfixes**
 
-* reported bug of faulty expiration times fixed
+* faulty expiration times fixed
 * eliminated warning message for memcache when no memcache extension is present
 * fixed multisite settings overwriting issue
 
 **Dropped functions**
 
 * APC entry compression support
-
-**Planned features**
-
-* optional NGiNX header preservation for shortlink, pingback and last-modified headers
 
 = 0.6.1 =
 *2013.03.08*
@@ -185,7 +181,7 @@ There are major problems with the "memcache" driver, the source is yet unkown. T
 
 * first public release
 
-== Information & requirements ==
+== Information ==
 
 = Using the plugin in a WordPress Network =
 From version 1.0, the plugin supports subdomain based WordPress Network with possible different per site cache settings. If the plugin is network active, obviously the network wide settings will be used for all of the sites. If it's activated only on some of the sites, the other will not be affected and even the cache storage backend can be different from site to site.
@@ -199,10 +195,6 @@ If the storage engine is either PHP Memcache or PHP Memcached extension, the cre
 A short configuration example is generated on the plugin settings page, under `NGiNX` tab according to the saved settings.
 **NOTE:** Some features ( most of additional HTTP headers for example, like pingback, shortlink, etc. ) will not be available with this solution.
 
-= Support =
-I provide support for the plugin as best as I can, but it comes without guarantee.
-Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic") and any questions on the forum.
-
 = Contribution =
 In order to make contributions a lot easier, I've moved the plugin development to [GitHub](https://github.com/petermolnar/wp-ffpc "GitHub"), feel free to fork and put shiny, new things in it.
 
@@ -213,3 +205,7 @@ and **at least one** of the following for storage backend:
 * PHP APC
 * PHP Memcached > 0.1.0
 * PHP Memcache > 2.1.0
+
+== Support ==
+I provide support for the plugin as best as I can, but it comes without guarantee.
+Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic") and any questions on the forum.
