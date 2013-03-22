@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, memcached, full page cache, NGiNX, memcache, page cache
 Requires at least: 3.0
 Tested up to: 3.5.1
-Stable tag: 0.6.1
+Stable tag: 1.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -49,9 +49,8 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 1. settings screen, cache type and basic settings
 2. debug and in depth-options
 3. cache exceptions
-4. apc settings
-5. memcached servers settings
-6. NGiNX example
+4. memcached servers settings
+5. NGiNX example
 
 == Changelog ==
 
@@ -78,9 +77,8 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 
 * APC entry compression support
 
-**Planned features for next major release**
+**Planned features**
 
-* support for Redis backend
 * optional NGiNX header preservation for shortlink, pingback and last-modified headers
 
 = 0.6.1 =
@@ -208,7 +206,7 @@ Please post feature requests to [WP-FFPC feature request topic](http://wordpress
 = Contribution =
 In order to make contributions a lot easier, I've moved the plugin development to [GitHub](https://github.com/petermolnar/wp-ffpc "GitHub"), feel free to fork and put shiny, new things in it.
 
-== Requirements ==
+= Requirements =
 * WordPress >= 3.0
 
 and **at least one** of the following for storage backend:

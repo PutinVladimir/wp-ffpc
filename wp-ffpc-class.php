@@ -524,6 +524,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 *
 		 */
 		public function plugin_hook_options_migrate( &$options ) {
+			$migrated = false;
 
 			if ( $options['version'] != $this->plugin_version || !isset ( $options['version'] ) ) {
 
@@ -535,23 +536,44 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 						unlink ( $fname );
 				}
 
-				/* updating from version 0.4.x */
+				/* look for previous config leftovers */
+				$try = get_site_option( $this->plugin_constant );
+				/* network option key changed, remove & migrate the leftovers if there's any */
+				if ( !empty ( $try ) && $this->network ) {
+					/* clean it up, we don't use it anymore */
+					delete_site_option ( $this->plugin_constant );
+
+					if ( empty ( $options ) && array_key_exists ( $this->global_config_key, $try ) ) {
+						$options = $try [ $this->global_config_key ];
+						$migrated = true;
+					}
+					elseif ( empty ( $options ) && array_key_exists ( 'host', $try ) ) {
+						$options = $try;
+						$migrated = true;
+					}
+				 }
+
+				/* updating from version <= 0.4.x */
 				if ( !empty ( $options['host'] ) ) {
 					$options['hosts'] = $options['host'] . ':' . $options['port'];
-					/* renamed options */
-					$options['log'] = $options['syslog'];
-					$options['response_header'] = $options['debug'];
+					$migrated = true;
 				}
 				/* migrating from version 0.6.x */
 				elseif ( is_array ( $options ) && array_key_exists ( $this->global_config_key , $options ) ) {
 					$options = $options[ $this->global_config_key ];
-					/* renamed options */
-					$options['log'] = $options['syslog'];
-					$options['response_header'] = $options['debug'];
+					$migrated = true;
 				}
 				/* migrating from something, drop previous config */
 				else {
 					$options = array();
+				}
+
+				if ( $migrated ) {
+					/* renamed options */
+					if ( isset ( $options['syslog'] ) )
+						$options['log'] = $options['syslog'];
+					if ( isset ( $options['debug'] ) )
+					$options['response_header'] = $options['debug'];
 				}
 
 			}
