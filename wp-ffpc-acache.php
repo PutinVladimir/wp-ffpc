@@ -64,36 +64,46 @@ if ( $wp_ffpc_config['cache_loggedin'] == 0 ) {
 	}
 }
 
+/* canonical redirect storage */
 $wp_ffpc_redirect = null;
+
+/* fires up the backend storage array with current config */
 $wp_ffpc_backend = new WP_FFPC_Backend( $wp_ffpc_config );
 
+/* will store time of page generation */
+$wp_ffpc_gentime = 0;
+
+/* backend connection failed, no caching :( */
 if ( $wp_ffpc_backend->status() === false )
 	return false;
 
-$wp_ffpc_keys = array ( 'meta', 'data' );
+/* try to get data & meta keys for current page */
+$wp_ffpc_keys = array ( 'meta' => $wp_ffpc_config['prefix_meta'], 'data' => $wp_ffpc_config['prefix_data'] );
 $wp_ffpc_values = array();
 
-foreach ( $wp_ffpc_keys as $key ) {
+foreach ( $wp_ffpc_keys as $internal => $key ) {
 	$value = $wp_ffpc_backend->get ( $wp_ffpc_backend->key ( $key ) );
 
 	if ( ! $value ) {
+		/* does not matter which is missing, we need both, if one fails, no caching */
 		wp_ffpc_start();
 		return;
 	}
 	else {
-		$wp_ffpc_values[ $key ] = $value;
+		/* store results */
+		$wp_ffpc_values[ $internal ] = $value;
 	}
 }
 
 /* serve cache 404 status */
-if ( $wp_ffpc_values['meta']['status'] == 404 ) {
+if ( isset( $wp_ffpc_values['meta']['status'] ) &&  $wp_ffpc_values['meta']['status'] == 404 ) {
 	header("HTTP/1.1 404 Not Found");
 	flush();
 	die();
 }
 
 /* server redirect cache */
-if ( $wp_ffpc_values['meta']['redirect'] ) {
+if ( isset( $wp_ffpc_values['meta']['redirect'] ) && $wp_ffpc_values['meta']['redirect'] ) {
 	header('Location: ' . $wp_ffpc_values['meta']['redirect'] );
 	flush();
 	die();
@@ -109,6 +119,8 @@ if ( array_key_exists( "HTTP_IF_MODIFIED_SINCE" , $_SERVER ) && !empty( $wp_ffpc
 		die();
 	}
 }
+
+/*** SERVING CACHED PAGE ***/
 
 /* if we reach this point it means data was found & correct, serve it */
 header('Content-Type: ' . $wp_ffpc_values['meta']['mime']);
@@ -141,11 +153,20 @@ echo $wp_ffpc_values['data'];
 flush();
 die();
 
+/*** END SERVING CACHED PAGE ***/
+
+
+/*** GENERATING CACHE ENTRY ***/
 /**
  * starts caching function
  *
  */
 function wp_ffpc_start( ) {
+	/* set start time */
+	global $wp_ffpc_gentime;
+	$mtime = explode ( " ", microtime() );
+	$wp_ffpc_gentime = $mtime[1] + $mtime[0];
+
 	/* start object "colleting" and pass it the the actual storer function  */
 	ob_start('wp_ffpc_callback');
 }
@@ -164,16 +185,19 @@ function wp_ffpc_redirect_callback ($redirect_url, $requested_url) {
  * write cache function, called when page generation ended
  */
 function wp_ffpc_callback( $buffer ) {
+	/* use global config */
 	global $wp_ffpc_config;
+	/* backend was already set up, try to use it */
 	global $wp_ffpc_backend;
+	/* check is it's a redirect */
 	global $wp_ffpc_redirect;
 
-	/* no is_home = error */
+	/* no is_home = error, WordPress functions are not availabe */
 	if (!function_exists('is_home'))
 		return $buffer;
 
-	/* no <body> close tag = not HTML, don't cache */
-	if (stripos($buffer, '</body>') === false)
+	/* no <body> close tag = not HTML, also no <rss>, not feed, don't cache */
+	if ( stripos($buffer, '</body>') === false && stripos($buffer, '</rss>') === false )
 		return $buffer;
 
 	/* reset meta to solve conflicts */
@@ -245,8 +269,7 @@ function wp_ffpc_callback( $buffer ) {
 		$meta['pingback'] = get_bloginfo('pingback_url');
 
 	/* sync all http and https requests if enabled */
-	if ( $config['sync_protocols'] == '1' )
-	{
+	if ( isset( $config['sync_protocols'] ) && $config['sync_protocols'] == '1' )	{
 		if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' )
 			$_SERVER['HTTPS'] = 'on';
 
@@ -262,8 +285,20 @@ function wp_ffpc_callback( $buffer ) {
 		$buffer = str_replace ( $sync_from, $sync_to, $buffer );
 	}
 
-	$wp_ffpc_backend->set ( $wp_ffpc_backend->key ( 'meta' ) , $meta );
-	$wp_ffpc_backend->set ( $wp_ffpc_backend->key ( 'data' ) , $buffer );
+	/* add generation info is option is set, but only to HTML */
+	if ( $wp_ffpc_config['generate_time'] == '1' && stripos($buffer, '</body>') ) {
+		global $wp_ffpc_gentime;
+		$mtime = explode ( " ", microtime() );
+		$wp_ffpc_gentime = ( $mtime[1] + $mtime[0] )- $wp_ffpc_gentime;
+
+		$insertion = "\n<!-- \nWP-FFPC \n\tcache engine: ". $wp_ffpc_config['cache_type'] ."\n\tpage generation time: ". round( $wp_ffpc_gentime, 3 ) ." seconds\n\tgeneraton UNIX timestamp: ". time() . "\n\tgeneraton date: ". date( 'c' ) . "\n-->\n";
+		$index = stripos( $buffer , '</body>' );
+
+		$buffer = substr_replace( $buffer, $insertion, $index, 0);
+	}
+
+	$wp_ffpc_backend->set ( $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_meta'] ) , $meta );
+	$wp_ffpc_backend->set ( $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_data'] ) , $buffer );
 
 	/* vital for nginx, make no problem at other places */
 	header("HTTP/1.1 200 OK");
@@ -271,5 +306,6 @@ function wp_ffpc_callback( $buffer ) {
 	/* echoes HTML out */
 	return $buffer;
 }
+/*** END GENERATING CACHE ENTRY ***/
 
 ?>

@@ -34,7 +34,16 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		const port_separator  = ':';
 		const donation_id_key = 'hosted_button_id=';
 		const global_config_var = '$wp_ffpc_config';
+		const key_save = 'saved';
+		const key_delete = 'deleted';
+		const key_flush = 'flushed';
 		const slug_flush = '&flushed=true';
+		const key_precache = 'precached';
+		const slug_precache = '&precached=true';
+		const key_precache_disabled = 'precache_disabled';
+		const slug_precache_disabled = '&precache_disabled=true';
+		const precache_log = 'wp-ffpc-precache.log';
+		private $precache_message = '';
 		private $global_option = '';
 		private $global_config_key = '';
 		private $global_config = array();
@@ -44,9 +53,13 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		private $nginx_sample = '';
 		private $acache_backend = '';
 		private $button_flush;
+		private $button_precache;
 		protected $select_cache_type = array ();
 		protected $select_invalidation_method = array ();
 		protected $valid_cache_type = array ();
+		private $precache_logfile = '';
+		private $shell_function = false;
+		private $shell_possibilities = array ();
 
 
 		/**
@@ -63,8 +76,23 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			$this->acache_backend = $this->plugin_dir . $this->plugin_constant . '-backend.php';
 			/* flush button identifier */
 			$this->button_flush = $this->plugin_constant . '-flush';
+			/* precache button identifier */
+			$this->button_precache = $this->plugin_constant . '-precache';
 			/* global options identifier */
 			$this->global_option = $this->plugin_constant . '-global';
+			/* precache log */
+			$this->precache_logfile = sys_get_temp_dir() . '/' . self::precache_log;
+			/* search for a system function */
+			$this->shell_possibilities = array ( 'shell_exec', 'exec', 'system', 'passthru' );
+			$disabled_functions = array_map('trim', explode(',', ini_get('disable_functions') ) );
+
+			foreach ( $this->shell_possibilities as $possible ) {
+				if ( function_exists ($possible) && ! ( ini_get('safe_mode') || in_array( $possible, $disabled_functions ) ) ) {
+					/* set shell function */
+					$this->shell_function = $possible;
+					break;
+				}
+			}
 
 			/* set global config key; here, because it's needed for migration */
 			if ( $this->network )
@@ -89,6 +117,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			$this->select_invalidation_method = array (
 				0 => __( 'flush cache' , $this->plugin_constant ),
 				1 => __( 'only modified post' , $this->plugin_constant ),
+				2 => __( 'modified post and all taxonomies' , $this->plugin_constant ),
 			);
 
 		}
@@ -100,24 +129,24 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		public function plugin_setup () {
 
 			/* initiate backend */
-			$this->backend = new WP_FFPC_Backend ( $this->options );
+			$this->backend = new WP_FFPC_Backend ( $this->options, $this->network );
 
 			/* get all available post types */
 			$post_types = get_post_types( );
 
 			/* cache invalidation hooks */
 			foreach ( $post_types as $post_type ) {
-				add_action( 'new_to_publish_' .$post_type , array( $this->backend , 'clear' ), 0 );
-				add_action( 'draft_to_publish' .$post_type , array( $this->backend , 'clear' ), 0 );
-				add_action( 'pending_to_publish' .$post_type , array( $this->backend , 'clear' ), 0 );
-				add_action( 'private_to_publish' .$post_type , array( $this->backend , 'clear' ), 0 );
-				add_action( 'publish_' . $post_type , array( $this->backend , 'clear' ), 0 );
+				add_action( 'new_to_publish_' .$post_type , array( &$this->backend , 'clear' ), 0 );
+				add_action( 'draft_to_publish' .$post_type , array( &$this->backend , 'clear' ), 0 );
+				add_action( 'pending_to_publish' .$post_type , array( &$this->backend , 'clear' ), 0 );
+				add_action( 'private_to_publish' .$post_type , array( &$this->backend , 'clear' ), 0 );
+				add_action( 'publish_' . $post_type , array( &$this->backend , 'clear' ), 0 );
 			}
 
 			/* invalidation on some other ocasions as well */
-			add_action( 'switch_theme', array( $this->backend , 'clear' ), 0 );
-			add_action( 'deleted_post', array( $this->backend , 'clear' ), 0 );
-			add_action( 'edit_post', array( $this->backend , 'clear' ), 0 );
+			add_action( 'switch_theme', array( &$this->backend , 'clear' ), 0 );
+			add_action( 'deleted_post', array( &$this->backend , 'clear' ), 0 );
+			add_action( 'edit_post', array( &$this->backend , 'clear' ), 0 );
 
 			/* add filter for catching canonical redirects */
 			add_filter('redirect_canonical', 'wp_ffpc_redirect_callback', 10, 2);
@@ -153,6 +182,33 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		}
 
 		/**
+		 * extending admin init
+		 *
+		 */
+		public function plugin_hook_admin_init () {
+			/* save parameter updates, if there are any */
+			if ( isset( $_POST[ $this->button_flush ] ) ) {
+				$this->backend->clear( false, true );
+				$this->status = 3;
+				header( "Location: ". $this->settings_link . self::slug_flush );
+			}
+
+			/* save parameter updates, if there are any */
+			if ( isset( $_POST[ $this->button_precache ] ) ) {
+
+				if ( $this->shell_function == false ) {
+					$this->status = 5;
+					header( "Location: ". $this->settings_link . self::slug_precache_disabled );
+				}
+				else {
+					$this->precache_message = $this->precache();
+					$this->status = 4;
+					header( "Location: ". $this->settings_link . self::slug_precache );
+				}
+			}
+		}
+
+		/**
 		 * admin panel, the admin page displayed for plugin settings
 		 */
 		public function plugin_admin_panel() {
@@ -169,12 +225,14 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			<script>
 				jQuery(document).ready(function($) {
 					jQuery( "#<?php echo $this->plugin_constant ?>-settings" ).tabs();
+					jQuery( "#<?php echo $this->plugin_constant ?>-commands" ).tabs();
 				});
 			</script>
 
 			<?php
 
 			$this->plugin_donation_form();
+
 			/**
 			 * if options were saved, display saved message
 			 */
@@ -185,22 +243,29 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/**
 			 * if options were saved, display saved message
 			 */
-			if ($_GET['saved']=='true' || $this->status == 1) : ?>
+			if (isset($_GET[ self::key_save ]) && $_GET[ self::key_save ]=='true' || $this->status == 1) : ?>
 				<div class='updated settings-error'><p><strong><?php _e( 'Settings saved.' , $this->plugin_constant ) ?></strong></p></div>
 			<?php endif;
 
 			/**
 			 * if options were delete, display delete message
 			 */
-			if ($_GET['deleted']=='true' || $this->status == 2) : ?>
+			if (isset($_GET[ self::key_delete ]) && $_GET[ self::key_delete ]=='true' || $this->status == 2) : ?>
 				<div class='error'><p><strong><?php _e( 'Plugin options deleted.' , $this->plugin_constant ) ?></strong></p></div>
 			<?php endif;
 
 			/**
 			 * if options were saved
 			 */
-			if ($_GET['flushed']=='true' || $this->status == 3) : ?>
+			if (isset($_GET[ self::key_flush ]) && $_GET[ self::key_flush ]=='true' || $this->status == 3) : ?>
 				<div class='updated settings-error'><p><strong><?php _e( "Cache flushed." , $this->plugin_constant ); ?></strong></p></div>
+			<?php endif;
+
+			/**
+			 * if options were saved, display saved message
+			 */
+			if ( ( isset($_GET[ self::key_precache ]) && $_GET[ self::key_precache ]=='true' ) || $this->status == 4) : ?>
+			<div class='updated settings-error'><p><strong><?php _e( 'Precache process was started, it is now running in the background, please be patient, it may take a very long time to finish.' , $this->plugin_constant ) ?></strong></p></div>
 			<?php endif;
 
 			/**
@@ -279,6 +344,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<li><a href="#<?php echo $this->plugin_constant ?>-exceptions" class="wp-switch-editor"><?php _e( 'Cache exceptions', $this->plugin_constant ); ?></a></li>
 					<li><a href="#<?php echo $this->plugin_constant ?>-memcached" class="wp-switch-editor"><?php _e( 'Memcache(d)', $this->plugin_constant ); ?></a></li>
 					<li><a href="#<?php echo $this->plugin_constant ?>-nginx" class="wp-switch-editor"><?php _e( 'nginx', $this->plugin_constant ); ?></a></li>
+					<li><a href="#<?php echo $this->plugin_constant ?>-precachelog" class="wp-switch-editor"><?php _e( 'Precache log', $this->plugin_constant ); ?></a></li>
 				</ul>
 
 				<fieldset id="<?php echo $this->plugin_constant ?>-type">
@@ -299,7 +365,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dt>
 					<dd>
 						<input type="number" name="expire" id="expire" value="<?php echo $this->options['expire']; ?>" />
-						<span class="description"><?php _e('Sets validity time of entry in milliseconds', $this->plugin_constant); ?></span>
+						<span class="description"><?php _e('Sets validity time of entry in seconds', $this->plugin_constant); ?></span>
 					</dd>
 
 					<dt>
@@ -317,7 +383,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 						<select name="invalidation_method" id="invalidation_method">
 							<?php $this->print_select_options ( $this->select_invalidation_method , $this->options['invalidation_method'] ) ?>
 						</select>
-						<span class="description"><?php _e('Select cache invalidation method. <p><strong>Be careful! Selecting "flush cache" will flush the whole cache, including elements that might have been set and used by other applications. Also, invalidating only the post will _not_ clear categories, archive and taxonomy pages, therefore only use this if refreshing after publish can wait until the entries expire on their own.</strong></p>', $this->plugin_constant); ?></span>
+						<span class="description"><?php _e('Select cache invalidation method. <ol><li><em>flush cache</em> - clears everything in storage, <strong>including values set by other applications</strong></li><li><em>only modified post</em> - clear only the modified posts entry, everything else remains in cache</li><li><em>modified post and all taxonomies</em> - removes all taxonomy term cache ( categories, tags, home, etc ) and the modified post as well</li></ol>', $this->plugin_constant); ?></span>
 					</dd>
 
 					<dt>
@@ -325,7 +391,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dt>
 					<dd>
 						<input type="text" name="prefix_data" id="prefix_data" value="<?php echo $this->options['prefix_data']; ?>" />
-						<span class="description"><?php _e('Prefix for HTML content keys, can be used in nginx.', $this->plugin_constant); ?></span>
+						<span class="description"><?php _e('Prefix for HTML content keys, can be used in nginx. If you are caching with nginx, you should update your nginx configuration and restart nginx after changing this value.', $this->plugin_constant); ?></span>
 					</dd>
 
 					<dt>
@@ -363,6 +429,14 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="response_header" id="response_header" value="1" <?php checked($this->options['response_header'],true); ?> />
 						<span class="description"><?php _e('Add X-Cache-Engine HTTP header to HTTP responses.', $this->plugin_constant); ?></span>
+					</dd>
+
+					<dt>
+						<label for="generate_time"><?php _e("Add HTML debug comment", $this->plugin_constant); ?></label>
+					</dt>
+					<dd>
+						<input type="checkbox" name="generate_time" id="generate_time" value="1" <?php checked($this->options['generate_time'],true); ?> />
+						<span class="description"><?php _e('Adds comment string including plugin name, cache engine and page generation time to every generated entry before closing <body> tag.', $this->plugin_constant); ?></span>
 					</dd>
 
 					<dt>
@@ -455,28 +529,95 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				<pre><?php echo $this->nginx_example(); ?></pre>
 				</fieldset>
 
+				<fieldset id="<?php echo $this->plugin_constant ?>-precachelog">
+				<legend><?php _e('Log from previous pre-cache generation', $this->plugin_constant); ?></legend>
+					<?php
+					if ( @file_exists ( $this->precache_logfile ) ) :
+						$log = file ( $this->precache_logfile );
+						$head = explode( "\t", array_shift( $log ));
+						$gentime = filemtime ( $this->precache_logfile );
+					?>
+					<p><strong><?php _e( 'Time of run: ') ?><?php echo date('r', $gentime ); ?></strong></p>
+					<table style="width:100%; border: 1px solid #ccc;">
+						<thead><tr>
+							<th style="width:70%;"><?php echo $head[0]; ?></th>
+							<th style="width:15%;"><?php echo $head[1]; ?></th>
+							<th style="width:15%;"><?php echo $head[2]; ?></th>
+						</tr></thead>
+						<?php
+						foreach ( $log as $line ) :
+							$line = explode ( "\t", $line );
+						?>
+							<tr>
+								<td><?php echo $line[0]; ?></td>
+								<td><?php echo $line[1]; ?></td>
+								<td><?php echo $line[2]; ?></td>
+							</tr>
+						<?php
+						endforeach;
+						?>
+					</table>
+				<?php
+					else :
+						_e('No precache log was found!', $this->plugin_constant);
+					endif;
+				?></pre>
+				</fieldset>
+
 				<p class="clear">
 					<input class="button-primary" type="submit" name="<?php echo $this->button_save ?>" id="<?php echo $this->button_save ?>" value="<?php _e('Save Changes', $this->plugin_constant ) ?>" />
-					<input class="button-secondary" style="float: right" type="submit" name="<?php echo $this->button_delete ?>" id="<?php echo $this->button_delete ?>" value="<?php _e('Delete options from DB', $this->plugin_constant ) ?>" />
-					<input class="button-secondary" style="float: right" type="submit" name="<?php echo $this->button_flush ?>" id="<?php echo $this->button_flush ?>" value="<?php _e('Clear cache', $this->plugin_constant ) ?>" />
 				</p>
 
 			</form>
+
+			<form method="post" action="#" id="<?php echo $this->plugin_constant ?>-commands" class="plugin-admin" style="padding-top:2em;">
+
+				<ul class="tabs">
+					<li><a href="#<?php echo $this->plugin_constant ?>-precache" class="wp-switch-editor"><?php _e( 'Precache', $this->plugin_constant ); ?></a></li>
+					<li><a href="#<?php echo $this->plugin_constant ?>-flush" class="wp-switch-editor"><?php _e( 'Empty cache', $this->plugin_constant ); ?></a></li>
+					<li><a href="#<?php echo $this->plugin_constant ?>-reset" class="wp-switch-editor"><?php _e( 'Reset settings', $this->plugin_constant ); ?></a></li>
+				</ul>
+
+				<fieldset id="<?php echo $this->plugin_constant ?>-precache">
+				<legend><?php _e( 'Precache', $this->plugin_constant ); ?></legend>
+				<dl>
+					<dt>
+						<?php if ( ( isset( $_GET[ self::key_precache_disabled ] ) && $_GET[ self::key_precache_disabled ] =='true' ) || $this->status == 5 || $this->shell_function == false ) : ?>
+							<strong><?php _e( "Precache functionality is disabled due to unavailable system call function. <br />Since precaching may take a very long time, it's done through a background CLI process in order not to run out of max execution time of PHP. Please enable one of the following functions if you whish to use precaching: " , $this->plugin_constant ) ?><?php echo join( ',' , $this->shell_possibilities ); ?></strong>
+						<?php else: ?>
+							<input class="button-secondary" type="submit" name="<?php echo $this->button_precache ?>" id="<?php echo $this->button_precache ?>" value="<?php _e('Pre-cache', $this->plugin_constant ) ?>" />
+						<?php endif; ?>
+					</dt>
+					<dd>
+						<span class="description"><?php _e('Start a background process that visits all permalinks of all blogs it can found thus forces WordPress to generate cached version of all the pages.<br />The plugin tries to visit links of taxonomy terms without the taxonomy name as well. This may generate 404 hits, please be prepared for these in your logfiles if you plan to pre-cache.', $this->plugin_constant); ?></span>
+					</dd>
+				</dl>
+				</fieldset>
+				<fieldset id="<?php echo $this->plugin_constant ?>-flush">
+				<legend><?php _e( 'Precache', $this->plugin_constant ); ?></legend>
+				<dl>
+					<dt>
+						<input class="button-warning" type="submit" name="<?php echo $this->button_flush ?>" id="<?php echo $this->button_flush ?>" value="<?php _e('Clear cache', $this->plugin_constant ) ?>" />
+					</dt>
+					<dd>
+						<span class="description"><?php _e ( "Clear all entries in the storage, including the ones that were set by other processes.", $this->plugin_constant ); ?> </span>
+					</dd>
+				</dl>
+				</fieldset>
+				<fieldset id="<?php echo $this->plugin_constant ?>-reset">
+				<legend><?php _e( 'Precache', $this->plugin_constant ); ?></legend>
+				<dl>
+					<dt>
+						<input class="button-warning" type="submit" name="<?php echo $this->button_delete ?>" id="<?php echo $this->button_delete ?>" value="<?php _e('Reset options', $this->plugin_constant ) ?>" />
+					</dt>
+					<dd>
+						<span class="description"><?php _e ( "Reset settings to defaults.", $this->plugin_constant ); ?> </span>
+					</dd>
+				</dl>
+				</fieldset>
+			</form>
 			</div>
 			<?php
-		}
-
-		/**
-		 * extending admin init
-		 *
-		 */
-		public function plugin_hook_admin_init () {
-			/* save parameter updates, if there are any */
-			if ( isset( $_POST[ $this->button_flush ] ) ) {
-				$this->backend->clear();
-				$this->status = 3;
-				header( "Location: ". $this->settings_link . self::slug_flush );
-			}
 		}
 
 		/**
@@ -625,10 +766,13 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				}';
 
 			/* replace the data prefix with the configured one */
-			$nginx = str_replace ( 'DATAPREFIX' , $this->options['prefix_data'] , $nginx );
+			$to_replace = array ( 'DATAPREFIX' , 'SERVERROOT', 'SERVERLOG' );
+			$replace_with = array ( $this->options['prefix_data'], ABSPATH, $_SERVER['SERVER_NAME'] );
+			$nginx = str_replace ( $to_replace , $replace_with , $nginx );
 
 			/* set upstream servers from configured servers, best to get from the actual backend */
 			$servers = $this->backend->get_servers();
+			$nginx_servers = '';
 			foreach ( array_keys( $servers ) as $server ) {
 				$nginx_servers .= "		server ". $server .";\n";
 			}
@@ -664,6 +808,138 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			/* save options to database */
 			update_site_option( $this->global_option , $this->global_config );
+		}
+
+		/**
+		 * generate cache entry for every available permalink, might be very-very slow,
+		 * therefore it starts a background process
+		 *
+		 */
+		private function precache () {
+			/* container for links to precache, well be accessed by reference */
+			$links = array();
+
+			/* when plugin is  network wide active, we need to pre-cache for all link of all blogs */
+			if ( $this->network ) {
+				/* list all blogs */
+				$blog_list = get_blog_list( 0, 'all' );
+				foreach ($blog_list as $blog) {
+					/* get permalinks for this blog */
+					$this->precache_list_permalinks ( $links, $blog['blog_id'] );
+				}
+			}
+			else {
+				/* no network, better */
+				$this->precache_list_permalinks ( $links, false );
+			}
+
+			/* temporary php file, will destroy itself after finish in order to clean up */
+			$tmpfile = tempnam(sys_get_temp_dir(), 'wp-ffpc');
+
+			/* double check if we do have any links to pre-cache */
+			if ( !empty ( $links ) ) :
+
+			/* this is the precacher php worker file: logs the links, their generation time and the generated content size
+			* writes the logfile and destroys itself afterwards
+			*/
+			$out .= '<?php
+				$links = ' . var_export ( $links , true ) . ';
+
+				echo "permalink\tgeneration time (s)\tsize ( kbyte )\n";
+				foreach ( $links as $permalink => $dummy ) {
+					$starttime = explode ( " ", microtime() );
+					$starttime = $starttime[1] + $starttime[0];
+
+						$page = file_get_contents( $permalink );
+						$size = round ( ( strlen ( $page ) / 1024 ), 3 );
+
+					$endtime = explode ( " ", microtime() );
+					$endtime = ( $endtime[1] + $endtime[0] ) - $starttime;
+
+					echo $permalink . "\t" . $endtime . "\t" . $size . "\n";
+					unset ( $page, $size, $starttime, $endtime );
+					sleep( 1 );
+				}
+				unlink ( "'. $tmpfile .'" );
+			?>';
+
+			file_put_contents ( $tmpfile, $out  );
+			/* call the precache worker file in the background */
+			$shellfunction = $this->shell_function;
+			$shellfunction( 'php '. $tmpfile .' >'. $this->precache_logfile .' 2>&1 &' );
+
+			endif;
+		}
+
+
+		/**
+		 * gets all post-like entry permalinks for a site, returns values in passed-by-reference array
+		 *
+		 */
+		private function precache_list_permalinks ( &$links, $site = false ) {
+			/* $post will be populated when running throught the posts */
+			global $post;
+			include_once ( ABSPATH . "wp-load.php" );
+
+			/* if a site id was provided, save current blog and change to the other site */
+			if ( $site !== false ) {
+				$current_blog = get_current_blog_id();
+				switch_to_blog( $site );
+
+				$url = get_blog_option ( $site, 'siteurl' );
+				if ( substr( $url, -1) !== '/' )
+					$url = $url . '/';
+
+				$links[ $url ] = true;
+			}
+
+
+			/* get all published posts */
+			$args = array (
+				'post_type' => 'any',
+				'posts_per_page' => -1,
+				'post_status' => 'publish',
+			);
+			$posts = new WP_Query( $args );
+
+			/* get all the posts, one by one  */
+			while ( $posts->have_posts() ) {
+				$posts->the_post();
+
+				/* get the permalink for currently selected post */
+				switch ($post->post_type) {
+					case 'revision':
+					case 'nav_menu_item':
+						break;
+					case 'page':
+						$permalink = get_page_link( $post->ID );
+						break;
+					case 'post':
+						$permalink = get_permalink( $post->ID );
+						break;
+					case 'attachment':
+						$permalink = get_attachment_link( $post->ID );
+						break;
+					default:
+						$permalink = get_post_permalink( $post->ID );
+					break;
+				}
+
+				/* collect permalinks */
+				$links[ $permalink ] = true;
+
+			}
+
+			//$this->taxonomy_links ( $links );
+			$this->backend->taxonomy_links ( $links );
+
+			/* just in case, reset $post */
+			wp_reset_postdata();
+
+			/* switch back to original site if we navigated away */
+			if ( $site !== false ) {
+				switch_to_blog( $current_blog );
+			}
 		}
 
 	}

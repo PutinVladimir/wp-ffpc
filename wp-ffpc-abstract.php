@@ -65,7 +65,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		protected $donation_link;
 		protected $button_save;
 		protected $button_delete;
-		protected $capability = 10;
+		protected $capability = 'manage_options';
 		protected $donation_business_name;
 		protected $donation_item_name;
 		protected $broadcast_message;
@@ -114,47 +114,10 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			/* set the settings page link string */
 			$this->settings_link = $this->settings_slug . '?page=' .  $this->plugin_settings_page;
 
-			/* initialize plugin, plugin specific init functions */
-			$this->plugin_init();
+			add_action( 'init', array(&$this,'init'));
 
-			/* get the options */
-			$this->plugin_options_read();
+			add_action( 'admin_enqueue_scripts', array(&$this,'enqueue_admin_css_js'));
 
-			/* setup plugin, plugin specific setup functions that need options */
-			$this->plugin_setup();
-
-			/* add admin styling */
-			if( is_admin() ) {
-				/* jquery ui tabs is provided by WordPress */
-				wp_enqueue_script ( "jquery-ui-tabs" );
-				wp_enqueue_script ( "jquery-ui-slider" );
-
-				/* additional admin styling */
-				$css_handle = $this->plugin_constant . '-admin-css';
-				$css_file = $this->plugin_constant . '-admin.css';
-				if ( @file_exists ( $this->plugin_dir . $css_file ) )
-				{
-					$css_src = $this->plugin_url . $css_file;
-					wp_register_style( $css_handle, $css_src, false, false, 'all' );
-					wp_enqueue_style( $css_handle );
-				}
-			}
-
-			register_activation_hook( $this->plugin_file , array( $this , 'plugin_activate') );
-			register_deactivation_hook( $this->plugin_file , array( $this , 'plugin_deactivate') );
-			register_uninstall_hook( $this->plugin_file , array( $this , 'plugin_uninstall') );
-
-			/* register settings pages */
-			if ( $this->network )
-				add_filter( "network_admin_plugin_action_links_" . $this->plugin_file, array( $this, 'plugin_settings_link' ) );
-			else
-				add_filter( "plugin_action_links_" . $this->plugin_file, array( $this, 'plugin_settings_link' ) );
-
-			/* register admin init, catches $_POST and adds submenu to admin menu */
-			if ( $this->network )
-				add_action('network_admin_menu', array( $this , 'plugin_admin_init') );
-			else
-				add_action('admin_menu', array( $this , 'plugin_admin_init') );
 		}
 
 		/**
@@ -213,7 +176,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			$this->broadcast_message = @file_get_contents( $this->broadcast_message );
 
 			/* add submenu to settings pages */
-			add_submenu_page( $this->settings_slug, $this->plugin_name . __( ' options' , $this->plugin_constant ), $this->plugin_name, $this->capability, $this->plugin_settings_page, array ( $this , 'plugin_admin_panel' ) );
+			add_submenu_page( $this->settings_slug, $this->plugin_name . __( ' options' , $this->plugin_constant ), $this->plugin_name, $this->capability, $this->plugin_settings_page, array ( &$this , 'plugin_admin_panel' ) );
 		}
 
 		/**
@@ -221,6 +184,36 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		 *
 		 */
 		abstract function plugin_hook_admin_init();
+
+
+		public function init(){
+			/* initialize plugin, plugin specific init functions */
+			$this->plugin_init();
+
+			/* get the options */
+			$this->plugin_options_read();
+
+			/* setup plugin, plugin specific setup functions that need options */
+			$this->plugin_setup();
+
+			register_activation_hook( $this->plugin_file , 'plugin_activate' );
+			register_deactivation_hook( $this->plugin_file , 'plugin_deactivate' );
+			register_uninstall_hook( $this->plugin_file , 'plugin_uninstall' );
+
+			/* register settings pages */
+			if ( $this->network )
+				add_filter( "network_admin_plugin_action_links_" . $this->plugin_file, array( &$this, 'plugin_settings_link' ) );
+			else
+				add_filter( "plugin_action_links_" . $this->plugin_file, array( &$this, 'plugin_settings_link' ) );
+
+			/* register admin init, catches $_POST and adds submenu to admin menu */
+			if ( $this->network )
+				add_action('network_admin_menu', array( &$this , 'plugin_admin_init') );
+			else
+				add_action('admin_menu', array( &$this , 'plugin_admin_init') );
+
+
+		}
 
 		/**
 		 * callback function to add settings link to plugins page
@@ -232,6 +225,23 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			$settings_link = '<a href="' . $this->settings_link . '">' . __( 'Settings', $this->plugin_constant ) . '</a>';
 			array_unshift( $links, $settings_link );
 			return $links;
+		}
+
+		/* add admin styling */
+		public function enqueue_admin_css_js(){
+			/* jquery ui tabs is provided by WordPress */
+			wp_enqueue_script ( "jquery-ui-tabs" );
+			wp_enqueue_script ( "jquery-ui-slider" );
+
+			/* additional admin styling */
+			$css_handle = $this->plugin_constant . '-admin-css';
+			$css_file = $this->plugin_constant . '-admin.css';
+			if ( @file_exists ( $this->plugin_dir . $css_file ) )
+			{
+				$css_src = $this->plugin_url . $css_file;
+				wp_register_style( $css_handle, $css_src, false, false, 'all' );
+				wp_enqueue_style( $css_handle );
+			}
 		}
 
 		/**
@@ -367,14 +377,18 @@ if (!class_exists('WP_Plugins_Abstract')) {
 
 			switch ( $log_level ) {
 				case LOG_ERR :
-					if ( function_exists( 'syslog' ) )
+					if ( function_exists( 'syslog' ) && function_exists ( 'openlog' ) ) {
+						openlog('wordpress('.$_SERVER['HTTP_HOST'].')',LOG_NDELAY|LOG_PID,LOG_SYSLOG);
 						syslog( $log_level , self::plugin_constant . $message );
+					}
 					/* error level is real problem, needs to be displayed on the admin panel */
 					throw new Exception ( $message );
 				break;
 				default:
-					if ( function_exists( 'syslog' ) && $this->config['debug'] )
+					if ( function_exists( 'syslog' ) && function_exists ( 'openlog' ) && $this->config['debug'] ) {
+						openlog('wordpress('.$_SERVER['HTTP_HOST'].')',LOG_NDELAY|LOG_PID,LOG_SYSLOG);
 						syslog( $log_level , self::plugin_constant . $message );
+					}
 				break;
 			}
 
@@ -462,6 +476,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			else
 				$check_disabled = false;
 
+			$opt = '';
 			foreach ($elements as $value => $name ) {
 				//$disabled .= ( @array_key_exists( $valid[ $value ] ) && $valid[ $value ] == false ) ? ' disabled="disabled"' : '';
 				$opt .= '<option value="' . $value . '" ';
