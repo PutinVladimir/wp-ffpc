@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed, fast
 Requires at least: 3.0
 Tested up to: 3.5.1
-Stable tag: 1.0
+Stable tag: 1.1
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -26,8 +26,9 @@ Supports PHP Memcached, PHP Memcache and APC as storage engines, subdomain and d
 * pingback HTTP header preservation
 * (optional) talkative log for troubleshooting
 * multiple memcached upstream support
+*  precache ( manually only )
 
-Many thanks for supporters, testers & bug reporters: [Eric Gilette](http://www.ericgillette.com/ "Eric Gilette"); [doconeill](http://wordpress.org/support/profile/doconeill "doconeill"); [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow").
+Many thanks for supporters, testers & bug reporters: [Harold Kyle](https://github.com/haroldkyle "Harold Kyle"); [Eric Gilette](http://www.ericgillette.com/ "Eric Gilette"); [doconeill](http://wordpress.org/support/profile/doconeill "doconeill"); [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow").
 
 Thanks for [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") for beeing inspirational.
 
@@ -56,6 +57,7 @@ From version 1.0, the plugin supports subdomain based WordPress Network with pos
 * WordPress >= 3.0
 
 and **at least one** of the following for storage backend:
+
 * PHP APC
 * PHP Memcached > 0.1.0
 * PHP Memcache > 2.1.0
@@ -68,6 +70,11 @@ All logs use syslog() PHP function, therefore it's presence is mandatory for log
 = How can I contribute? =
 In order to make contributions a lot easier, I've moved the plugin development to [GitHub](https://github.com/petermolnar/wp-ffpc "GitHub"), feel free to fork and put shiny, new things in it and get in touch with me [hello@petermolnar.eu](mailto:hello@petermolnar.eu "hello@petermolnar.eu") when you have it ready.
 
+= Where can I turn for support? =
+I provide support for the plugin as best as I can, but it comes without guarantee.
+Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic") and any questions on the forum.
+
+
 == Screenshots ==
 
 1. settings screen, cache type and basic settings
@@ -77,6 +84,24 @@ In order to make contributions a lot easier, I've moved the plugin development t
 5. NGiNX example
 
 == Changelog ==
+
+= 1.1 =
+2013.04.24
+
+What's new:
+
+* HTML comment option for displaying cache info before closing "body" tag ( a.k.a make sure it works "noob" method )
+* pre-cache function ( only manual pre-cache is enabled for now; uses permalinks structure )
+* new, additional invalidation method: clear post & all taxonomy cache, including feeds
+* full virtual server example to use the plugin with nginx ( originally it was only a snippet required to use the plugin )
+
+What's fixed:
+
+* contributed fixes from [Harold Kyle](https://github.com/haroldkyle "Harold Kyle") to surpress PHP notices and warnings; better CSS & JS enqueue; corrected admin panel descriptions
+* bugfix for status check ( there were situations where the status was not updated correctly )
+* manual flush cache bug fixed ( was only flushing if the settings were on "flush all" )
+* bugfix on data & meta prefixes ( some places used hardcoded prefixes )
+* feed caching fixed ( due to a security check it turned out feeds were excluded for a long time )
 
 = 1.0 =
 *2013.03.22*
@@ -204,7 +229,3 @@ There are major problems with the "memcache" driver, the source is yet unkown. T
 *2012.02.16*
 
 * first public release
-
-== Support ==
-I provide support for the plugin as best as I can, but it comes without guarantee.
-Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic") and any questions on the forum.
