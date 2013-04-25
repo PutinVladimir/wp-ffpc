@@ -62,7 +62,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 			/* call backend initiator based on cache type */
 			$init = $this->proxy( 'init' );
 
-			$this->log ( __translate__(' init starting', self::plugin_constant ));
+			$this->log ( __translate__('init starting', self::plugin_constant ));
 			$this->$init();
 		}
 
@@ -376,24 +376,28 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 * @param mixed $message message to add besides basic info
 		 *
 		 */
-		public function log ( $message, $log_level = LOG_WARNING ) {
+		private function log ( $message, $log_level = LOG_WARNING ) {
 
 			if ( @is_array( $message ) || @is_object ( $message ) )
 				$message = serialize($message);
 
-			if (! $this->options['log'] )
+			if ( !isset ( $this->options['log'] ) || $this->options['log'] != 1 )
 				return false;
 
 			switch ( $log_level ) {
 				case LOG_ERR :
-					if ( function_exists( 'syslog' ) )
-						syslog( $log_level , self::plugin_constant . " with " . $this->options['cache_type'] . ' ' . $message );
+					if ( function_exists( 'syslog' ) && function_exists ( 'openlog' ) ) {
+						openlog('wordpress('.$_SERVER['HTTP_HOST'].')',LOG_NDELAY|LOG_PERROR,LOG_SYSLOG);
+						syslog( $log_level , self::plugin_constant . $message );
+					}
 					/* error level is real problem, needs to be displayed on the admin panel */
 					//throw new Exception ( $message );
 				break;
 				default:
-					if ( function_exists( 'syslog' ) && isset($this->options['debug']) && $this->options['debug'] )
-						syslog( $log_level , self::plugin_constant . " with " . $this->options['cache_type'] . ' ' . $message );
+					if ( function_exists( 'syslog' ) && function_exists ( 'openlog' ) && isset( $this->options['log_info'] ) && $this->options['log_info'] == 1 ) {
+						openlog('wordpress(' .$_SERVER['HTTP_HOST']. ')', LOG_NDELAY,LOG_SYSLOG);
+						syslog( $log_level, self::plugin_constant . " " .  $message );
+					}
 				break;
 			}
 

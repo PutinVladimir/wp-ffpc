@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed, fast
 Requires at least: 3.0
 Tested up to: 3.5.1
-Stable tag: 1.1
+Stable tag: 1.1.1
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -85,8 +85,14 @@ Please post feature requests to [WP-FFPC feature request topic](http://wordpress
 
 == Changelog ==
 
+= 1.1.1 =
+*2013.04.25*
+
+* bugfix: Memcache plugin was diplaying server status incorrectly ( although the plugin was working )
+* bugfix: typo prevented log to work correctly
+
 = 1.1 =
-2013.04.24
+*2013.04.24*
 
 What's new:
 

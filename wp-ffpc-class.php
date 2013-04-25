@@ -326,7 +326,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 							if ( $status == 0 )
 								_e ( '<span class="error-msg">down</span><br />', $this->plugin_constant );
-							elseif ( $status == 1 )
+							elseif ( ( $this->options['cache_type'] == 'memcache' && $status > 0 )  || $status == 1 )
 								_e ( '<span class="ok-msg">up & running</span><br />', $this->plugin_constant );
 							else
 								_e ( '<span class="error-msg">unknown, please try re-saving settings!</span><br />', $this->plugin_constant );

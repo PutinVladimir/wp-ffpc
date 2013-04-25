@@ -361,7 +361,7 @@ if (!class_exists('WP_Plugins_Abstract')) {
 		abstract function plugin_hook_options_save ( $activating );
 
 		/**
-		 * sends message to sysog
+		 * sends message to syslog
 		 *
 		 * @param string $message message to add besides basic info
 		 * @param int $log_level [optional] Level of log, info by default
@@ -372,22 +372,22 @@ if (!class_exists('WP_Plugins_Abstract')) {
 			if ( @is_array( $message ) || @is_object ( $message ) )
 				$message = serialize($message);
 
-			if (! $this->config['log'] )
+			if ( !isset ( $this->options['log'] ) || $this->options['log'] != 1 )
 				return false;
 
 			switch ( $log_level ) {
 				case LOG_ERR :
 					if ( function_exists( 'syslog' ) && function_exists ( 'openlog' ) ) {
-						openlog('wordpress('.$_SERVER['HTTP_HOST'].')',LOG_NDELAY|LOG_PID,LOG_SYSLOG);
+						openlog('wordpress('.$_SERVER['HTTP_HOST'].')',LOG_NDELAY|LOG_PERROR,LOG_SYSLOG);
 						syslog( $log_level , self::plugin_constant . $message );
 					}
 					/* error level is real problem, needs to be displayed on the admin panel */
-					throw new Exception ( $message );
+					//throw new Exception ( $message );
 				break;
 				default:
-					if ( function_exists( 'syslog' ) && function_exists ( 'openlog' ) && $this->config['debug'] ) {
-						openlog('wordpress('.$_SERVER['HTTP_HOST'].')',LOG_NDELAY|LOG_PID,LOG_SYSLOG);
-						syslog( $log_level , self::plugin_constant . $message );
+					if ( function_exists( 'syslog' ) && function_exists ( 'openlog' ) && isset( $this->options['log_info'] ) && $this->options['log_info'] == 1 ) {
+						openlog('wordpress(' .$_SERVER['HTTP_HOST']. ')', LOG_NDELAY,LOG_SYSLOG);
+						syslog( $log_level, self::plugin_constant . $message );
 					}
 				break;
 			}
