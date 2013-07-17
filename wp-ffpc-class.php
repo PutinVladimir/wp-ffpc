@@ -10,26 +10,27 @@
  */
 
 if ( ! class_exists( 'WP_FFPC' ) ) {
-
 	/* get the plugin abstract class*/
-	include_once ( 'wp-ffpc-abstract.php');
+	include_once ( 'wp-common/wp-plugin-abstract.php' );
 	/* get the common functions class*/
-	include_once ( 'wp-ffpc-backend.php');
+	include_once ( 'wp-ffpc-backend.php' );
 
 	/**
 	 * main wp-ffpc class
 	 *
-	 * @var string $acache_config Configuration storage file location
-	 * @var string $acache_worker The advanced cache worker file location
-	 * @var string $acache The WordPress standard advanced cache location
-	 * @var array $select_cache_type Possible cache types array
-	 * @var array $select_invalidation_method Possible invalidation methods array
-	 * @var string $nginx_sample Nginx example config file location
-	 * @var array $select_cache_type Cache types string array
-	 * @var array $select_invalidation_method Invalidation methods string array
-	 *
+	 * @var string $acache_worker	advanced cache "worker" file, bundled with the plugin
+	 * @var string $acache	WordPress advanced-cache.php file location
+	 * @var string $nginx_sample	nginx sample config file, bundled with the plugin
+	 * @var string $acache_backend	backend driver file, bundled with the plugin
+	 * @var string $button_flush	flush button identifier
+	 * @var string $button_precache	precache button identifier
+	 * @var string $global_option	global options identifier
+	 * @var string $precache_logfile	Precache log file location
+	 * @var string $precache_phpfile	Precache PHP worker location
+	 * @var array $shell_possibilities	List of possible precache worker callers
+	 [TODO] finish list of vars
 	 */
-	class WP_FFPC extends WP_Plugins_Abstract {
+	class WP_FFPC extends WP_Plugins_Abstract_v2 {
 		const host_separator  = ',';
 		const port_separator  = ':';
 		const donation_id_key = 'hosted_button_id=';
@@ -42,8 +43,13 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		const slug_precache = '&precached=true';
 		const key_precache_disabled = 'precache_disabled';
 		const slug_precache_disabled = '&precache_disabled=true';
-		const precache_log = 'wp-ffpc-precache.log';
+		const precache_log = 'wp-ffpc-precache-log';
+		const precache_timestamp = 'wp-ffpc-precache-timestamp';
+		const precache_php = 'wp-ffpc-precache.php';
+		const precache_id = 'wp-ffpc-precache-task';
 		private $precache_message = '';
+		private $precache_logfile = '';
+		private $precache_phpfile = '';
 		private $global_option = '';
 		private $global_config_key = '';
 		private $global_config = array();
@@ -54,13 +60,16 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		private $acache_backend = '';
 		private $button_flush;
 		private $button_precache;
-		protected $select_cache_type = array ();
-		protected $select_invalidation_method = array ();
-		protected $valid_cache_type = array ();
-		private $precache_logfile = '';
+		private $select_cache_type = array ();
+		private $select_invalidation_method = array ();
+		private $select_schedules = array();
+		private $valid_cache_type = array ();
+		private $list_uri_vars = array();
 		private $shell_function = false;
 		private $shell_possibilities = array ();
-
+		private $backend = NULL;
+		private $scheduled = false;
+		private $errors = array();
 
 		/**
 		 * init hook function runs before admin panel hook, themeing and options read
@@ -82,8 +91,11 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			$this->global_option = $this->plugin_constant . '-global';
 			/* precache log */
 			$this->precache_logfile = sys_get_temp_dir() . '/' . self::precache_log;
+			/* this is the precacher php worker file */
+			$this->precache_phpfile = sys_get_temp_dir() . '/' . self::precache_php;
 			/* search for a system function */
 			$this->shell_possibilities = array ( 'shell_exec', 'exec', 'system', 'passthru' );
+			/* get disabled functions list */
 			$disabled_functions = array_map('trim', explode(',', ini_get('disable_functions') ) );
 
 			foreach ( $this->shell_possibilities as $possible ) {
@@ -106,7 +118,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				'memcache' => __( 'PHP Memcache' , $this->plugin_constant ),
 				'memcached' => __( 'PHP Memcached' , $this->plugin_constant ),
 			);
-
+			/* check for required functions / classes for the cache types */
 			$this->valid_cache_type = array (
 				'apc' => function_exists( 'apc_sma_info' ) ? true : false,
 				'memcache' => class_exists ( 'Memcache') ? true : false,
@@ -120,10 +132,32 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				2 => __( 'modified post and all taxonomies' , $this->plugin_constant ),
 			);
 
+			/* map of possible key masks */
+			$this->list_uri_vars = array (
+				'$scheme' => __('The HTTP scheme (i.e. http, https).', $this->plugin_constant ),
+				'$host' => __('Host in the header of request or name of the server processing the request if the Host header is not available.', $this->plugin_constant ),
+				'$request_uri' => __('The *original* request URI as received from the client including the args', $this->plugin_constant ),
+				'$remote_user' => __('Name of user, authenticated by the Auth Basic Module', $this->plugin_constant ),
+				'$cookie_PHPSESSID' => __('PHP Session Cookie ID, if set ( empty if not )', $this->plugin_constant ),
+				//'$cookie_COOKnginy IE' => __('Value of COOKIE', $this->plugin_constant ),
+				//'$http_HEADER' => __('Value of HTTP request header HEADER ( lowercase, dashes converted to underscore )', $this->plugin_constant ),
+				//'$query_string' => __('Full request URI after rewrites', $this->plugin_constant ),
+				//'' => __('', $this->plugin_constant ),
+			);
+
+			/* get current wp_cron schedules */
+			$wp_schedules = wp_get_schedules();
+			/* add 'null' to switch off timed precache */
+			$schedules['null'] = __( 'do not use timed precache' );
+			foreach ( $wp_schedules as $interval=>$details ) {
+				$schedules[ $interval ] = $details['display'];
+			}
+			$this->select_schedules = $schedules;
+
 		}
 
 		/**
-		 * additional init, steps that needs the plugin  options
+		 * additional init, steps that needs the plugin options
 		 *
 		 */
 		public function plugin_setup () {
@@ -151,6 +185,52 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/* add filter for catching canonical redirects */
 			add_filter('redirect_canonical', 'wp_ffpc_redirect_callback', 10, 2);
 
+			/* clean up schedule if needed */
+			if ( !isset( $this->options['precache_schedule'] ) || $this->options['precache_schedule'] == 'null' ) {
+				$this->log ( 'CRON clearing event' );
+				wp_clear_scheduled_hook ( self::precache_id );
+			}
+
+			/* add precache coldrun action */
+			add_action( self::precache_id , array( &$this, 'precache_coldrun' ) );
+
+			$settings_link = ' &raquo; <a href="' . $this->settings_link . '">' . __( 'WP-FFPC Settings', $this->plugin_constant ) . '</a>';
+			/* check for errors */
+			if ( ! WP_CACHE )
+				$this->errors['no_wp_cache'] = __("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ) . $settings_link;
+
+			if ( ! $this->global_saved )
+				$this->errors['no_global_saved'] = __("Plugin settings are not yet saved for the site, please save settings!", $this->plugin_constant) . $settings_link;
+
+			if ( ! file_exists ( $this->acache ) )
+				$this->errors['no_acache_saved'] = __("Advanced cache file is yet to be generated, please save settings!", $this->plugin_constant). $settings_link;
+
+			if ( file_exists ( $this->acache ) && ! is_writable ( $this->acache ) )
+				$this->errors['no_acache_write'] = __("Advanced cache file is not writeable!<br />Please change the permissions on the file: ", $this->plugin_constant) . $this->acache;
+
+			if ( $this->options['cache_type'] == 'memcached' && !class_exists('Memcached') )
+				$this->errors['no_memcached'] = __('Memcached cache backend activated but no PHP memcached extension was found.<br />Please either use different backend or activate the module!', $this->plugin_constant);
+
+			if ( $this->options['cache_type'] == 'memcache' && !class_exists('Memcache') )
+				$this->errors['no_memcached'] = __('Memcache cache backend activated but no PHP memcache extension was found.<br />Please either use different backend or activate the module!', $this->plugin_constant);
+
+			/* get the current runtime configuration for memcache in PHP because Memcache in binary mode is really problematic */
+			if ( extension_loaded ( 'memcache' )  ) {
+				$memcache_settings = ini_get_all( 'memcache' );
+				if ( !empty ( $memcache_settings ) && $this->options['cache_type'] == 'memcache' )
+				{
+					$memcache_protocol = strtolower($memcache_settings['memcache.protocol']['local_value']);
+					if ( $memcached_protocol == 'binary' ) {
+						$this->errors['binary_memcache'] = __('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work correctly. <br />Please consider to change either to ASCII mode or to Memcached extension.', $this->plugin_constant );
+					}
+				}
+			}
+
+			/* display errors globally */
+			if ( $this->network )
+				add_action( 'network_admin_notices', array( &$this, 'display_errors') );
+			else
+				add_action( 'admin_notices', array( &$this, 'display_errors') );
 		}
 
 		/**
@@ -170,8 +250,9 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 		/**
 		 * uninstall hook function, to be extended
+		 * [TODO] static abstraction is not allowed in PHP; how to do this?
 		 */
-		public function plugin_uninstall( $delete_options = true ) {
+		static public function plugin_uninstall( $delete_options = true ) {
 			/* delete advanced-cache.php file */
 			unlink ( $this->acache );
 
@@ -188,6 +269,23 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		public function plugin_hook_admin_init () {
 			/* save parameter updates, if there are any */
 			if ( isset( $_POST[ $this->button_flush ] ) ) {
+
+				/* remove precache log entry */
+				$this->_delete_option( self::precache_log  );
+				/* remove precache timestamp entry */
+				$this->_delete_option( self::precache_timestamp );
+
+				/* remove precache logfile */
+				if ( @file_exists ( $this->precache_logfile ) ) {
+					unlink ( $this->precache_logfile );
+				}
+
+				/* remove precache PHP worker */
+				if ( @file_exists ( $this->precache_phpfile ) ) {
+					unlink ( $this->precache_phpfile );
+				}
+
+				/* flush backend */
 				$this->backend->clear( false, true );
 				$this->status = 3;
 				header( "Location: ". $this->settings_link . self::slug_flush );
@@ -196,16 +294,42 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/* save parameter updates, if there are any */
 			if ( isset( $_POST[ $this->button_precache ] ) ) {
 
+				/* is no shell function is possible, fail */
 				if ( $this->shell_function == false ) {
 					$this->status = 5;
 					header( "Location: ". $this->settings_link . self::slug_precache_disabled );
 				}
+				/* otherwise start full precache */
 				else {
-					$this->precache_message = $this->precache();
+					$this->precache_message = $this->precache_coldrun();
 					$this->status = 4;
 					header( "Location: ". $this->settings_link . self::slug_precache );
 				}
 			}
+		}
+
+		/**
+		 * admin help panel
+		 */
+		public function plugin_admin_help($contextual_help, $screen_id ) {
+
+			/* add our page only if the screenid is correct */
+			if ( strpos( $screen_id, $this->plugin_settings_page ) ) {
+				$contextual_help = __('<p>Please visit <a href="http://wordpress.org/support/plugin/wp-ffpc">the official support forum of the plugin</a> for help.</p>', $this->plugin_constant );
+
+				/* [TODO] give detailed information on errors & troubleshooting
+				get_current_screen()->add_help_tab( array(
+						'id'		=> $this->plugin_constant . '-issues',
+						'title'		=> __( 'Troubleshooting' ),
+						'content'	=> __( '<p>List of errors, possible reasons and solutions</p><dl>
+							<dt>E#</dt><dd></dd>
+						</ol>' )
+				) );
+				*/
+
+			}
+
+			return $contextual_help;
 		}
 
 		/**
@@ -231,42 +355,43 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			<?php
 
+			/* display donation form */
 			$this->plugin_donation_form();
 
 			/**
 			 * if options were saved, display saved message
 			 */
-			if ( ! empty( $this->broadcast_message ) ) : ?>
+			if ( ! empty( $this->broadcast_message ) ) { ?>
 				<div class="updated"><?php echo $this->broadcast_message; ?></div>
-			<?php endif;
+			<?php }
 
 			/**
 			 * if options were saved, display saved message
 			 */
-			if (isset($_GET[ self::key_save ]) && $_GET[ self::key_save ]=='true' || $this->status == 1) : ?>
+			if (isset($_GET[ self::key_save ]) && $_GET[ self::key_save ]=='true' || $this->status == 1) { ?>
 				<div class='updated settings-error'><p><strong><?php _e( 'Settings saved.' , $this->plugin_constant ) ?></strong></p></div>
-			<?php endif;
+			<?php }
 
 			/**
 			 * if options were delete, display delete message
 			 */
-			if (isset($_GET[ self::key_delete ]) && $_GET[ self::key_delete ]=='true' || $this->status == 2) : ?>
+			if (isset($_GET[ self::key_delete ]) && $_GET[ self::key_delete ]=='true' || $this->status == 2) { ?>
 				<div class='error'><p><strong><?php _e( 'Plugin options deleted.' , $this->plugin_constant ) ?></strong></p></div>
-			<?php endif;
+			<?php }
 
 			/**
 			 * if options were saved
 			 */
-			if (isset($_GET[ self::key_flush ]) && $_GET[ self::key_flush ]=='true' || $this->status == 3) : ?>
+			if (isset($_GET[ self::key_flush ]) && $_GET[ self::key_flush ]=='true' || $this->status == 3) { ?>
 				<div class='updated settings-error'><p><strong><?php _e( "Cache flushed." , $this->plugin_constant ); ?></strong></p></div>
-			<?php endif;
+			<?php }
 
 			/**
 			 * if options were saved, display saved message
 			 */
-			if ( ( isset($_GET[ self::key_precache ]) && $_GET[ self::key_precache ]=='true' ) || $this->status == 4) : ?>
+			if ( ( isset($_GET[ self::key_precache ]) && $_GET[ self::key_precache ]=='true' ) || $this->status == 4) { ?>
 			<div class='updated settings-error'><p><strong><?php _e( 'Precache process was started, it is now running in the background, please be patient, it may take a very long time to finish.' , $this->plugin_constant ) ?></strong></p></div>
-			<?php endif;
+			<?php }
 
 			/**
 			 * the admin panel itself
@@ -275,66 +400,29 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 			<h2><?php echo $this->plugin_name ; _e( ' settings', $this->plugin_constant ) ; ?></h2>
 
-			<?php if ( ! WP_CACHE ) : ?>
-				<div class="error"><p><?php _e("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ); ?></p></div>
-			<?php endif; ?>
-
-			<?php if ( ! $this->global_saved ) : ?>
-				<div class="error"><p><?php _e("WARNING: plugin settings are not yet saved for the site, please save settings!", $this->plugin_constant); ?></p><p><?php _e( "Technical information: the configuration array is not present in the global configuration." , $this->plugin_constant ) ?></p></div>
-			<?php endif; ?>
-
-			<?php if ( ! file_exists ( $this->acache ) ) : ?>
-				<div class="error"><p><?php _e("WARNING: advanced cache file is yet to be generated, please save settings!", $this->plugin_constant); ?></p><p><?php _e( "Technical information: please check if location is writable: " . $this->acache , $this->plugin_constant ) ?></p></div>
-			<?php endif; ?>
-
-			<?php if ( $this->options['cache_type'] == 'memcached' && !class_exists('Memcached') ) : ?>
-				<div class="error"><p><?php _e('ERROR: Memcached cache backend activated but no PHP memcached extension was found.', $this->plugin_constant); ?></p></div>
-			<?php endif; ?>
-
-			<?php if ( $this->options['cache_type'] == 'memcache' && !class_exists('Memcache') ) : ?>
-				<div class="error"><p><?php _e('ERROR: Memcache cache backend activated but no PHP memcache extension was found.', $this->plugin_constant); ?></p></div>
-			<?php endif; ?>
-
-			<?php
-				/* get the current runtime configuration for memcache in PHP because Memcache in binary mode is really problematic */
-				if ( extension_loaded ( 'memcache' )  )
-				{
-					$memcache_settings = ini_get_all( 'memcache' );
-					if ( !empty ( $memcache_settings ) && $this->options['cache_type'] == 'memcache' )
-					{
-						$memcache_protocol = strtolower($memcache_settings['memcache.protocol']['local_value']);
-						if ( $memcached_protocol == 'binary' ) :
-						?>
-						<div class="error"><p><?php _e('WARNING: Memcache extension is configured to use binary mode. This is very buggy and the plugin will most probably not work correctly. <br />Please consider to change either to ASCII mode or to Memcached extension.', $this->plugin_constant ); ?></p></div>
-						<?php
-						endif;
-					}
-				}
-			?>
 			<div class="updated">
 				<p><strong><?php _e ( 'Driver: ' , $this->plugin_constant); echo $this->options['cache_type']; ?></strong></p>
 				<?php
-					/* only display backend status if memcache-like extension is running */
-					if ( strstr ( $this->options['cache_type'], 'memcache') ) :
-						?><p><?php
-						_e( '<strong>Backend status:</strong><br />', $this->plugin_constant );
+				/* only display backend status if memcache-like extension is running */
+				if ( strstr ( $this->options['cache_type'], 'memcache') ) {
+					?><p><?php
+					_e( '<strong>Backend status:</strong><br />', $this->plugin_constant );
 
-						/* we need to go through all servers */
-						$servers = $this->backend->status();
-						foreach ( $servers as $server_string => $status ) {
-							echo $server_string ." => ";
+					/* we need to go through all servers */
+					$servers = $this->backend->status();
+					foreach ( $servers as $server_string => $status ) {
+						echo $server_string ." => ";
 
-							if ( $status == 0 )
-								_e ( '<span class="error-msg">down</span><br />', $this->plugin_constant );
-							elseif ( ( $this->options['cache_type'] == 'memcache' && $status > 0 )  || $status == 1 )
-								_e ( '<span class="ok-msg">up & running</span><br />', $this->plugin_constant );
-							else
-								_e ( '<span class="error-msg">unknown, please try re-saving settings!</span><br />', $this->plugin_constant );
-						}
+						if ( $status == 0 )
+							_e ( '<span class="error-msg">down</span><br />', $this->plugin_constant );
+						elseif ( ( $this->options['cache_type'] == 'memcache' && $status > 0 )  || $status == 1 )
+							_e ( '<span class="ok-msg">up & running</span><br />', $this->plugin_constant );
+						else
+							_e ( '<span class="error-msg">unknown, please try re-saving settings!</span><br />', $this->plugin_constant );
+					}
 
-						?></p><?php
-					endif;
-				?>
+					?></p><?php
+				} ?>
 			</div>
 			<form method="post" action="#" id="<?php echo $this->plugin_constant ?>-settings" class="plugin-admin">
 
@@ -344,7 +432,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<li><a href="#<?php echo $this->plugin_constant ?>-exceptions" class="wp-switch-editor"><?php _e( 'Cache exceptions', $this->plugin_constant ); ?></a></li>
 					<li><a href="#<?php echo $this->plugin_constant ?>-memcached" class="wp-switch-editor"><?php _e( 'Memcache(d)', $this->plugin_constant ); ?></a></li>
 					<li><a href="#<?php echo $this->plugin_constant ?>-nginx" class="wp-switch-editor"><?php _e( 'nginx', $this->plugin_constant ); ?></a></li>
-					<li><a href="#<?php echo $this->plugin_constant ?>-precachelog" class="wp-switch-editor"><?php _e( 'Precache log', $this->plugin_constant ); ?></a></li>
+					<li><a href="#<?php echo $this->plugin_constant ?>-precache" class="wp-switch-editor"><?php _e( 'Precache & precache log', $this->plugin_constant ); ?></a></li>
 				</ul>
 
 				<fieldset id="<?php echo $this->plugin_constant ?>-type">
@@ -391,7 +479,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dt>
 					<dd>
 						<input type="text" name="prefix_data" id="prefix_data" value="<?php echo $this->options['prefix_data']; ?>" />
-						<span class="description"><?php _e('Prefix for HTML content keys, can be used in nginx. If you are caching with nginx, you should update your nginx configuration and restart nginx after changing this value.', $this->plugin_constant); ?></span>
+						<span class="description"><?php _e('Prefix for HTML content keys, can be used in nginx.<br /><strong>WARNING</strong>: changing this will result the previous cache to becomes invalid!<br />If you are caching with nginx, you should update your nginx configuration and reload nginx after changing this value.', $this->plugin_constant); ?></span>
 					</dd>
 
 					<dt>
@@ -399,8 +487,22 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dt>
 					<dd>
 						<input type="text" name="prefix_meta" id="prefix_meta" value="<?php echo $this->options['prefix_meta']; ?>" />
-						<span class="description"><?php _e('Prefix for meta content keys, used only with PHP processing.', $this->plugin_constant); ?></span>
+						<span class="description"><?php _e('Prefix for meta content keys, used only with PHP processing.<br /><strong>WARNING</strong>: changing this will result the previous cache to becomes invalid!', $this->plugin_constant); ?></span>
 					</dd>
+
+					<dt>
+						<label for="key"><?php _e('Key scheme', $this->plugin_constant); ?></label>
+					</dt>
+					<dd>
+						<input type="text" name="key" id="key" value="<?php echo $this->options['key']; ?>" />
+						<span class="description"><?php _e('Key layout; <strong>use the guide below to change it</strong>.<br /><strong>WARNING</strong>: changing this will result the previous cache to becomes invalid!<br />If you are caching with nginx, you should update your nginx configuration and reload nginx after changing this value.', $this->plugin_constant); ?><?php ?></span>
+						<dl class="description"><?php
+						foreach ( $this->list_uri_vars as $uri => $desc ) {
+							echo '<dt>'. $uri .'</dt><dd>'. $desc .'</dd>';
+						}
+						?></dl>
+					</dd>
+
 				</dl>
 				</fieldset>
 
@@ -412,15 +514,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dt>
 					<dd>
 						<input type="checkbox" name="log" id="log" value="1" <?php checked($this->options['log'],true); ?> />
-						<span class="description"><?php _e('Enables ERROR and WARNING level syslog messages. Requires PHP syslog function.', $this->plugin_constant); ?></span>
-					</dd>
-
-					<dt>
-						<label for="log_info"><?php _e("Enable information log", $this->plugin_constant); ?></label>
-					</dt>
-					<dd>
-						<input type="checkbox" name="log_info" id="log_info" value="1" <?php checked($this->options['log_info'],true); ?> />
-						<span class="description"><?php _e('Enables INFO level messages; carefull, plugin is really talkative. Requires PHP syslog function.', $this->plugin_constant); ?></span>
+						<span class="description"><?php _e('Enables log messages; if <a href="http://codex.wordpress.org/WP_DEBUG">WP_DEBUG</a> is enabled, notices and info level is displayed as well, otherwie only ERRORS are logged.', $this->plugin_constant); ?></span>
 					</dd>
 
 					<dt>
@@ -437,14 +531,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					<dd>
 						<input type="checkbox" name="generate_time" id="generate_time" value="1" <?php checked($this->options['generate_time'],true); ?> />
 						<span class="description"><?php _e('Adds comment string including plugin name, cache engine and page generation time to every generated entry before closing <body> tag.', $this->plugin_constant); ?></span>
-					</dd>
-
-					<dt>
-						<label for="sync_protocols"><?php _e("Enable sync protocolls", $this->plugin_constant); ?></label>
-					</dt>
-					<dd>
-						<input type="checkbox" name="sync_protocols" id="sync_protocols" value="1" <?php checked($this->options['sync_protocols'],true); ?> />
-						<span class="description"><?php _e('Enable to replace every protocol to the same as in the request for site\'s domain', $this->plugin_constant); ?></span>
 					</dd>
 
 				</dl>
@@ -501,6 +587,14 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 						<input type="checkbox" name="nocache_page" id="nocache_page" value="1" <?php checked($this->options['nocache_page'],true); ?> />
 						<span class="description"><?php _e('Exclude pages from caching.', $this->plugin_constant); ?></span>
 					</dd>
+
+					<dt>
+						<label for="nocache_cookies"><?php _e("Don't cache cookies", $this->plugin_constant); ?></label>
+					</dt>
+					<dd>
+						<input type="text" name="nocache_cookies" id="nocache_cookies" value="<?php if(isset( $this->options['nocache_cookies'] ) ) echo $this->options['nocache_cookies']; ?>" />
+						<span class="description"><?php _e('Exclude cookies names starting with this from caching. Separate multiple cookies names with commas.<br />If you are caching with nginx, you should update your nginx configuration and reload nginx after changing this value.', $this->plugin_constant); ?></span>
+					</dd>
 				</dl>
 				</fieldset>
 
@@ -519,7 +613,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dt>
 					<dd>
 						<input type="checkbox" name="persistent" id="persistent" value="1" <?php checked($this->options['persistent'],true); ?> />
-						<span class="description"><?php _e('Make all memcache(d) connections persistent. Be carefull with this setting, always test the outcome.', $this->plugin_constant); ?></span>
+						<span class="description"><?php _e('Make all memcache(d) connections persistent. Be careful with this setting, always test the outcome.', $this->plugin_constant); ?></span>
 					</dd>
 				</dl>
 				</fieldset>
@@ -529,39 +623,59 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				<pre><?php echo $this->nginx_example(); ?></pre>
 				</fieldset>
 
-				<fieldset id="<?php echo $this->plugin_constant ?>-precachelog">
-				<legend><?php _e('Log from previous pre-cache generation', $this->plugin_constant); ?></legend>
+				<fieldset id="<?php echo $this->plugin_constant ?>-precache">
+				<legend><?php _e('Precache settings & log from previous pre-cache generation', $this->plugin_constant); ?></legend>
+
+					<dt>
+						<label for="precache_schedule"><?php _e('Precache schedule', $this->plugin_constant); ?></label>
+					</dt>
+					<dd>
+						<select name="precache_schedule" id="precache_schedule">
+							<?php $this->print_select_options ( $this->select_schedules, $this->options['precache_schedule'] ) ?>
+						</select>
+						<span class="description"><?php _e('Schedule autorun for precache with WP-Cron', $this->plugin_constant); ?></span>
+					</dd>
+
 					<?php
-					if ( @file_exists ( $this->precache_logfile ) ) :
-						$log = file ( $this->precache_logfile );
-						$head = explode( "\t", array_shift( $log ));
-						$gentime = filemtime ( $this->precache_logfile );
-					?>
-					<p><strong><?php _e( 'Time of run: ') ?><?php echo date('r', $gentime ); ?></strong></p>
-					<table style="width:100%; border: 1px solid #ccc;">
-						<thead><tr>
-							<th style="width:70%;"><?php echo $head[0]; ?></th>
-							<th style="width:15%;"><?php echo $head[1]; ?></th>
-							<th style="width:15%;"><?php echo $head[2]; ?></th>
-						</tr></thead>
-						<?php
-						foreach ( $log as $line ) :
-							$line = explode ( "\t", $line );
-						?>
-							<tr>
-								<td><?php echo $line[0]; ?></td>
-								<td><?php echo $line[1]; ?></td>
-								<td><?php echo $line[2]; ?></td>
-							</tr>
-						<?php
-						endforeach;
-						?>
-					</table>
-				<?php
-					else :
+
+					$gentime = $this->_get_option( self::precache_timestamp );
+					$log = $this->_get_option( self::precache_log );
+
+					if ( @file_exists ( $this->precache_logfile ) ) {
+						$logtime = filemtime ( $this->precache_logfile );
+
+						/* update precache log in DB if needed */
+						if ( $logtime > $gentime ) {
+							$log = file ( $this->precache_logfile );
+							$this->_update_option( self::precache_log , $log );
+							$this->_update_option( self::precache_timestamp , $logtime );
+						}
+
+					}
+
+					if ( empty ( $log ) ) {
 						_e('No precache log was found!', $this->plugin_constant);
-					endif;
-				?></pre>
+					}
+					else { ?>
+						<p><strong><?php _e( 'Time of run: ') ?><?php echo date('r', $gentime ); ?></strong></p>
+						<div  style="overflow: auto; max-height: 20em;"><table style="width:100%; border: 1px solid #ccc;">
+							<thead><tr>
+									<?php $head = explode( "	", array_shift( $log ));
+									foreach ( $head as $column ) { ?>
+										<th><?php echo $column; ?></th>
+									<?php } ?>
+							</tr></thead>
+							<?php
+							foreach ( $log as $line ) { ?>
+								<tr>
+									<?php $line = explode ( "	", $line );
+									foreach ( $line as $column ) { ?>
+										<td><?php echo $column; ?></td>
+									<?php } ?>
+								</tr>
+							<?php } ?>
+					</table></div>
+				<?php } ?>
 				</fieldset>
 
 				<p class="clear">
@@ -582,11 +696,12 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				<legend><?php _e( 'Precache', $this->plugin_constant ); ?></legend>
 				<dl>
 					<dt>
-						<?php if ( ( isset( $_GET[ self::key_precache_disabled ] ) && $_GET[ self::key_precache_disabled ] =='true' ) || $this->status == 5 || $this->shell_function == false ) : ?>
+						<?php if ( ( isset( $_GET[ self::key_precache_disabled ] ) && $_GET[ self::key_precache_disabled ] =='true' ) || $this->status == 5 || $this->shell_function == false ) { ?>
 							<strong><?php _e( "Precache functionality is disabled due to unavailable system call function. <br />Since precaching may take a very long time, it's done through a background CLI process in order not to run out of max execution time of PHP. Please enable one of the following functions if you whish to use precaching: " , $this->plugin_constant ) ?><?php echo join( ',' , $this->shell_possibilities ); ?></strong>
-						<?php else: ?>
+						<?php }
+						else { ?>
 							<input class="button-secondary" type="submit" name="<?php echo $this->button_precache ?>" id="<?php echo $this->button_precache ?>" value="<?php _e('Pre-cache', $this->plugin_constant ) ?>" />
-						<?php endif; ?>
+						<?php } ?>
 					</dt>
 					<dd>
 						<span class="description"><?php _e('Start a background process that visits all permalinks of all blogs it can found thus forces WordPress to generate cached version of all the pages.<br />The plugin tries to visit links of taxonomy terms without the taxonomy name as well. This may generate 404 hits, please be prepared for these in your logfiles if you plan to pre-cache.', $this->plugin_constant); ?></span>
@@ -625,6 +740,19 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		 *
 		 */
 		public function plugin_hook_options_save( $activating ) {
+
+			/* schedule cron if posted */
+			$schedule = wp_get_schedule( self::precache_id );
+			if ( $this->options['precache_schedule'] != 'null' ) {
+				/* clear all other schedules before adding a new in order to replace */
+				wp_clear_scheduled_hook ( self::precache_id );
+				$this->log ( __( 'Scheduling WP-CRON event', $this->plugin_constant ) );
+				$this->scheduled = wp_schedule_event( time(), $this->options['precache_schedule'] , self::precache_id );
+			}
+			elseif ( ( !isset($this->options['precache_schedule']) || $this->options['precache_schedule'] == 'null' ) && !empty( $schedule ) ) {
+				$this->log ( __('Clearing WP-CRON clearing event ' , $this->plugin_constant ) );
+				wp_clear_scheduled_hook ( self::precache_id );
+			}
 
 			/* flush the cache when news options are saved, not needed on activation */
 			if ( !$activating )
@@ -667,8 +795,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 		public function plugin_hook_options_migrate( &$options ) {
 			$migrated = false;
 
-			if ( $options['version'] != $this->plugin_version || !isset ( $options['version'] ) ) {
-
+			if ( version_compare ( $options['version'] , $this->plugin_version , '<' ) ) {
 				/* cleanup possible leftover files from previous versions */
 				$check = array ( 'advanced-cache.php', 'nginx-sample.conf', 'wp-ffpc.admin.css', 'wp-ffpc-common.php' );
 				foreach ( $check as $fname ) {
@@ -741,7 +868,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/* add the required includes and generate the needed code */
 			$string[] = "<?php";
 			$string[] = self::global_config_var . ' = ' . var_export ( $this->global_config, true ) . ';' ;
-			$string[] = "include_once ('" . $this->acache_backend . "');";
+			//$string[] = "include_once ('" . $this->acache_backend . "');";
 			$string[] = "include_once ('" . $this->acache_worker . "');";
 			$string[] = "?>";
 
@@ -759,30 +886,57 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/* read the sample file */
 			$nginx = file_get_contents ( $this->nginx_sample );
 
-			/* this part is not used when the cache is turned on for logged in users */
-			$loggedin = '# avoid cache for logged in users
-				if ($http_cookie ~* "comment_author_|wordpressuser_|wp-postpass_" ) {
-					set $memcached_request 0;
-				}';
-
 			/* replace the data prefix with the configured one */
 			$to_replace = array ( 'DATAPREFIX' , 'SERVERROOT', 'SERVERLOG' );
-			$replace_with = array ( $this->options['prefix_data'], ABSPATH, $_SERVER['SERVER_NAME'] );
+			$replace_with = array ( $this->options['prefix_data'] . $this->options['key'] , ABSPATH, $_SERVER['SERVER_NAME'] );
 			$nginx = str_replace ( $to_replace , $replace_with , $nginx );
 
 			/* set upstream servers from configured servers, best to get from the actual backend */
 			$servers = $this->backend->get_servers();
 			$nginx_servers = '';
-			foreach ( array_keys( $servers ) as $server ) {
-				$nginx_servers .= "		server ". $server .";\n";
+			if ( is_array ( $servers )) {
+				foreach ( array_keys( $servers ) as $server ) {
+					$nginx_servers .= "		server ". $server .";\n";
+				}
+			}
+			else {
+				$nginx_servers .= "		server ". $servers .";\n";
 			}
 			$nginx = str_replace ( 'MEMCACHED_SERVERS' , $nginx_servers , $nginx );
+
+			$loggedincookies = join('|', $this->backend->cookies );
+			/* this part is not used when the cache is turned on for logged in users */
+			$loggedin = '
+				if ($http_cookie ~* "'. $loggedincookies .'" ) {
+					set $memcached_request 0;
+				}';
 
 			/* add logged in cache, if valid */
 			if ( ! $this->options['cache_loggedin'])
 				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , $loggedin , $nginx );
 			else
 				$nginx = str_replace ( 'LOGGEDIN_EXCEPTION' , '' , $nginx );
+
+			/* nginx can skip caching for visitors with certain cookies specified in the options */
+			if( $this->options['nocache_cookies'] ) {
+				$cookies = str_replace( ",","|", $this->options['nocache_cookies'] );
+				$cookies = str_replace( " ","", $cookies );
+				$cookie_exception = '# avoid cache for cookies specified
+				if ($http_cookie ~* ' . $cookies . ' ) {
+					set $memcached_request 0;
+				}';
+				$nginx = str_replace ( 'COOKIES_EXCEPTION' , $cookie_exception , $nginx );
+			} else {
+				$nginx = str_replace ( 'COOKIES_EXCEPTION' , '' , $nginx );
+			}
+
+			/* add custom response header if specified in the options */
+			if( $this->options['response_header'] ){
+				$response_header =  'add_header X-Cache-Engine "WP-FFPC with ' . $this->options['cache_type'] .' via nginx";';
+				$nginx = str_replace ( 'RESPONSE_HEADER' , $response_header , $nginx );
+			} else{
+				$nginx = str_replace ( 'RESPONSE_HEADER' , '' , $nginx );
+			}
 
 			return $nginx;
 		}
@@ -810,22 +964,90 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			update_site_option( $this->global_option , $this->global_config );
 		}
 
+
 		/**
 		 * generate cache entry for every available permalink, might be very-very slow,
 		 * therefore it starts a background process
 		 *
 		 */
-		private function precache () {
+		private function precache ( &$links ) {
+
+			/* double check if we do have any links to pre-cache */
+			if ( !empty ( $links ) && !$this->precache_running() )  {
+
+				$out = '<?php
+					$links = ' . var_export ( $links , true ) . ';
+
+					echo "permalink\tgeneration time (s)\tsize ( kbyte )\n";
+					foreach ( $links as $permalink => $dummy ) {
+						$starttime = explode ( " ", microtime() );
+						$starttime = $starttime[1] + $starttime[0];
+
+							$page = file_get_contents( $permalink );
+							$size = round ( ( strlen ( $page ) / 1024 ), 2 );
+
+						$endtime = explode ( " ", microtime() );
+						$endtime = round( ( $endtime[1] + $endtime[0] ) - $starttime, 2 );
+
+						echo $permalink . "\t" .  $endtime . "\t" . $size . "\n";
+						unset ( $page, $size, $starttime, $endtime );
+						sleep( 1 );
+					}
+					unlink ( "'. $this->precache_phpfile .'" );
+				?>';
+
+				file_put_contents ( $this->precache_phpfile, $out  );
+				/* call the precache worker file in the background */
+				$shellfunction = $this->shell_function;
+				$shellfunction( 'php '. $this->precache_phpfile .' >'. $this->precache_logfile .' 2>&1 &' );
+			}
+
+		}
+
+		/**
+		 * check is precache is still ongoing
+		 *
+		 */
+		private function precache_running () {
+			$return = false;
+
+			/* if the precache file exists, it did not finish running as it should delete itself on finish */
+			if ( file_exists ( $this->precache_phpfile )) {
+				$return = true;
+			}
+			/*
+			 [TODO] cross-platform process check; this is *nix only
+			else {
+				$shellfunction = $this->shell_function;
+				$running = $shellfunction( "ps aux | grep \"". $this->precache_phpfile ."\" | grep -v grep | awk '{print $2}'" );
+				if ( is_int( $running ) && $running != 0 ) {
+					$return = true;
+				}
+			}
+			*/
+
+			return $return;
+		}
+
+		/**
+		 * run full-site precache
+		 */
+		public function precache_coldrun () {
+
 			/* container for links to precache, well be accessed by reference */
 			$links = array();
 
 			/* when plugin is  network wide active, we need to pre-cache for all link of all blogs */
 			if ( $this->network ) {
 				/* list all blogs */
-				$blog_list = get_blog_list( 0, 'all' );
+				global $wpdb;
+				$blog_list = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM wp_blogs ORDER BY blog_id", '' ) );
+
 				foreach ($blog_list as $blog) {
-					/* get permalinks for this blog */
-					$this->precache_list_permalinks ( $links, $blog['blog_id'] );
+					if ( $blog->archived != 1 && $blog->spam != 1 && $blog->deleted != 1) {
+						/* get permalinks for this blog */
+						$this->precache_list_permalinks ( $links, $blog->blog_id );
+					}
 				}
 			}
 			else {
@@ -833,44 +1055,11 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				$this->precache_list_permalinks ( $links, false );
 			}
 
-			/* temporary php file, will destroy itself after finish in order to clean up */
-			$tmpfile = tempnam(sys_get_temp_dir(), 'wp-ffpc');
-
 			/* double check if we do have any links to pre-cache */
-			if ( !empty ( $links ) ) :
-
-			/* this is the precacher php worker file: logs the links, their generation time and the generated content size
-			* writes the logfile and destroys itself afterwards
-			*/
-			$out .= '<?php
-				$links = ' . var_export ( $links , true ) . ';
-
-				echo "permalink\tgeneration time (s)\tsize ( kbyte )\n";
-				foreach ( $links as $permalink => $dummy ) {
-					$starttime = explode ( " ", microtime() );
-					$starttime = $starttime[1] + $starttime[0];
-
-						$page = file_get_contents( $permalink );
-						$size = round ( ( strlen ( $page ) / 1024 ), 3 );
-
-					$endtime = explode ( " ", microtime() );
-					$endtime = ( $endtime[1] + $endtime[0] ) - $starttime;
-
-					echo $permalink . "\t" . $endtime . "\t" . $size . "\n";
-					unset ( $page, $size, $starttime, $endtime );
-					sleep( 1 );
-				}
-				unlink ( "'. $tmpfile .'" );
-			?>';
-
-			file_put_contents ( $tmpfile, $out  );
-			/* call the precache worker file in the background */
-			$shellfunction = $this->shell_function;
-			$shellfunction( 'php '. $tmpfile .' >'. $this->precache_logfile .' 2>&1 &' );
-
-			endif;
+			if ( !empty ( $links ) )  {
+				$this->precache ( $links );
+			}
 		}
-
 
 		/**
 		 * gets all post-like entry permalinks for a site, returns values in passed-by-reference array
@@ -892,7 +1081,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 
 				$links[ $url ] = true;
 			}
-
 
 			/* get all published posts */
 			$args = array (
@@ -925,12 +1113,17 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					break;
 				}
 
+				/* in case the bloglinks are relative links add the base url, site specific */
+				$baseurl = get_blog_option ( $site, 'siteurl' );
+				if ( !strstr( $permalink, $baseurl ) ) {
+					$permalink = $baseurl . $permalink;
+				}
+
 				/* collect permalinks */
 				$links[ $permalink ] = true;
 
 			}
 
-			//$this->taxonomy_links ( $links );
 			$this->backend->taxonomy_links ( $links );
 
 			/* just in case, reset $post */
@@ -940,6 +1133,25 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			if ( $site !== false ) {
 				switch_to_blog( $current_blog );
 			}
+		}
+
+		/**
+		 * print errors, called by global errors hook
+		 *
+		 */
+		public function display_errors ( ) {
+			if ( empty ( $this->errors )) {
+				$r = false;
+			}
+			else {
+				$r = '<div class="error"><strong>'. __('WP-FFPC found errors, please correct them!', $this->plugin_constant ) .'</strong><ol>';
+				foreach ( $this->errors as $eid => $message ) {
+					$r .= '<li>' . $message . '</li>';
+				}
+				$r.= '</ol></div>';
+			}
+
+			echo $r;
 		}
 
 	}
