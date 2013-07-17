@@ -52,23 +52,41 @@ elseif ( !empty ( $wp_ffpc_config[ $_SERVER['HTTP_HOST'] ] ) )
 else
 	return false;
 
-/* no cache for for logged in users normally, only if enabled */
-if ( $wp_ffpc_config['cache_loggedin'] == 0 ) {
-	foreach ($_COOKIE as $n=>$v) {
-		// test cookie makes to cache not work!!!
-		if ($n == 'wordpress_test_cookie') continue;
-		// wp 2.5 and wp 2.3 have different cookie prefix, skip cache if a post password cookie is present, also
-		if ( (substr($n, 0, 14) == 'wordpressuser_' || substr($n, 0, 10) == 'wordpress_' || substr($n, 0, 12) == 'wp-postpass_') && !$wp_ffpc_config['cache_loggedin'] ) {
-			return false;
+if ( isset($wp_ffpc_config['nocache_cookies']) && !empty($wp_ffpc_config['nocache_cookies']) ) {
+	$nocache_cookies = array_map('trim',explode(",", $wp_ffpc_config['nocache_cookies'] ) );
+
+	if ( !empty( $nocache_cookies ) ) {
+		foreach ($_COOKIE as $n=>$v) {
+			/* check for any matches to user-added cookies to no-cache */
+			foreach ( $nocache_cookies as $nocache_cookie ) {
+				if( strpos( $n, $nocache_cookie ) === 0 ) {
+					return false;
+				}
+			}
 		}
 	}
 }
 
 /* canonical redirect storage */
 $wp_ffpc_redirect = null;
-
 /* fires up the backend storage array with current config */
+include_once ('wp-ffpc-backend.php');
 $wp_ffpc_backend = new WP_FFPC_Backend( $wp_ffpc_config );
+
+/* no cache for for logged in users unless it's set
+   identifier cookies are listed in backend as var for easier usage
+*/
+if ( !isset($wp_ffpc_config['cache_loggedin']) || $wp_ffpc_config['cache_loggedin'] == 0 || empty($wp_ffpc_config['cache_loggedin']) ) {
+
+	foreach ($_COOKIE as $n=>$v) {
+		foreach ( $wp_ffpc_backend->cookies as $nocache_cookie ) {
+			if( strpos( $n, $nocache_cookie ) === 0 ) {
+				return false;
+			}
+		}
+	}
+
+}
 
 /* will store time of page generation */
 $wp_ffpc_gentime = 0;
@@ -123,7 +141,8 @@ if ( array_key_exists( "HTTP_IF_MODIFIED_SINCE" , $_SERVER ) && !empty( $wp_ffpc
 /*** SERVING CACHED PAGE ***/
 
 /* if we reach this point it means data was found & correct, serve it */
-header('Content-Type: ' . $wp_ffpc_values['meta']['mime']);
+if (!empty ( $wp_ffpc_values['meta']['mime'] ) )
+	header('Content-Type: ' . $wp_ffpc_values['meta']['mime']);
 
 /* don't allow browser caching of page */
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
@@ -146,7 +165,7 @@ if ( !empty( $wp_ffpc_values['meta']['pingback'] ) )
 
 /* for debugging */
 if ( $wp_ffpc_config['response_header'] )
-	header( 'X-Cache-Engine: WP-FFPC with ' . $wp_ffpc_config['cache_type'] );
+	header( 'X-Cache-Engine: WP-FFPC with ' . $wp_ffpc_config['cache_type'] .' via PHP');
 
 /* HTML data */
 echo $wp_ffpc_values['data'];
@@ -224,12 +243,14 @@ function wp_ffpc_callback( $buffer ) {
 	else
 		$meta['type'] = 'unknown';
 
-	/* check if caching is disabled for page type */
-	$nocache_key = 'nocache_'. $meta['type'];
+	if ( $meta['type'] != 'unknown' ) {
+		/* check if caching is disabled for page type */
+		$nocache_key = 'nocache_'. $meta['type'];
 
-	/* don't cache if prevented by rule, also, log it */
-	if ( $wp_ffpc_config[ $nocache_key ] == 1 ) {
-		return $buffer;
+		/* don't cache if prevented by rule */
+		if ( $wp_ffpc_config[ $nocache_key ] == 1 ) {
+			return $buffer;
+		}
 	}
 
 	if ( is_404() )
@@ -268,30 +289,13 @@ function wp_ffpc_callback( $buffer ) {
 	if ( get_option ( 'default_ping_status' ) == 'open' )
 		$meta['pingback'] = get_bloginfo('pingback_url');
 
-	/* sync all http and https requests if enabled */
-	if ( isset( $config['sync_protocols'] ) && $config['sync_protocols'] == '1' )	{
-		if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' )
-			$_SERVER['HTTPS'] = 'on';
-
-		if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) ) {
-			$sync_from = 'http://' . $_SERVER['SERVER_NAME'];
-			$sync_to = 'https://' . $_SERVER['SERVER_NAME'];
-		}
-		else {
-			$sync_from = 'https://' . $_SERVER['SERVER_NAME'];
-			$sync_to = 'http://' . $_SERVER['SERVER_NAME'];
-		}
-
-		$buffer = str_replace ( $sync_from, $sync_to, $buffer );
-	}
-
 	/* add generation info is option is set, but only to HTML */
 	if ( $wp_ffpc_config['generate_time'] == '1' && stripos($buffer, '</body>') ) {
 		global $wp_ffpc_gentime;
 		$mtime = explode ( " ", microtime() );
 		$wp_ffpc_gentime = ( $mtime[1] + $mtime[0] )- $wp_ffpc_gentime;
 
-		$insertion = "\n<!-- \nWP-FFPC \n\tcache engine: ". $wp_ffpc_config['cache_type'] ."\n\tpage generation time: ". round( $wp_ffpc_gentime, 3 ) ." seconds\n\tgeneraton UNIX timestamp: ". time() . "\n\tgeneraton date: ". date( 'c' ) . "\n-->\n";
+		$insertion = "\n<!-- \nWP-FFPC \n\tcache engine: ". $wp_ffpc_config['cache_type'] ."\n\tpage generation time: ". round( $wp_ffpc_gentime, 3 ) ." seconds\n\tgeneraton UNIX timestamp: ". time() . "\n\tgeneraton date: ". date( 'c' ) . "\n\tserver: ". $_SERVER['SERVER_ADDR'] . "\n-->\n";
 		$index = stripos( $buffer , '</body>' );
 
 		$buffer = substr_replace( $buffer, $insertion, $index, 0);

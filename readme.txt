@@ -1,21 +1,20 @@
 === WP-FFPC ===
 Contributors: cadeyrn
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
-Tags: cache, page cache, full page cache, nginx, memcached, apc, speed, fast
+Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
-Tested up to: 3.5.1
-Stable tag: 1.1.1
+Tested up to: 3.5.2
+Stable tag: 1.2
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
 Fastest way of cache for WordPress: memcached + nginx!
 
 == Description ==
-WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress").
-Supports PHP Memcached, PHP Memcache and APC as storage engines, subdomain and domain based WordPress Networks and can be connected with [NGiNX](http://NGiNX.org "NGiNX") webserver.
+WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress"). It works with any webserver, including apache2, lighttpd, nginx, however, can be connected with [NGiNX](http://NGiNX.org "NGiNX") through memcached for unbeatable speed.
+Supports PHP Memcached, PHP Memcache and APC as storage engines, subdomain and domain based WordPress Networks.
 
 = Features: =
-* [NGiNX](http://NGiNX.org "NGiNX") compatibility
 * Wordpress Network support ( for subdomain layout )
 * cache exclude possibilities ( home, feeds, archieves, pages, singles )
 * (optional) cache for logged-in users
@@ -24,13 +23,17 @@ Supports PHP Memcached, PHP Memcache and APC as storage engines, subdomain and d
 * Last Modified HTTP header support ( for 304 responses )
 * shortlink HTTP header preservation
 * pingback HTTP header preservation
-* (optional) talkative log for troubleshooting
+* talkative log for [WP_DEBUG](http://codex.wordpress.org/WP_DEBUG "WP_DEBUG")
 * multiple memcached upstream support
-*  precache ( manually only )
+* precache ( manually or by timed by wp-cron )
+* [NGiNX](http://NGiNX.org "NGiNX") compatibility
 
-Many thanks for supporters, testers & bug reporters: [Harold Kyle](https://github.com/haroldkyle "Harold Kyle"); [Eric Gilette](http://www.ericgillette.com/ "Eric Gilette"); [doconeill](http://wordpress.org/support/profile/doconeill "doconeill"); [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow").
+Many thanks for contributors, supporters, testers & bug reporters:
 
-Thanks for [Hyper Cache](http://wordpress.org/extend/plugins/hyper-cache "Hyper Cache") for beeing inspirational.
+* [Harold Kyle](https://github.com/haroldkyle "Harold Kyle")
+* [Eric Gilette](http://www.ericgillette.com/ "Eric Gilette")
+* [doconeill](http://wordpress.org/support/profile/doconeill "doconeill")
+* [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow").
 
 == Installation ==
 
@@ -54,6 +57,7 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 From version 1.0, the plugin supports subdomain based WordPress Network with possible different per site cache settings. If the plugin is network active, obviously the network wide settings will be used for all of the sites. If it's activated only on some of the sites, the other will not be affected and even the cache storage backend can be different from site to site.
 
 = What are the plugin's requirements? =
+
 * WordPress >= 3.0
 
 and **at least one** of the following for storage backend:
@@ -63,9 +67,8 @@ and **at least one** of the following for storage backend:
 * PHP Memcache > 2.1.0
 
 = How logging works in the plugin? =
-Log levels ( if logging enabled ) includes warning and error level messages; error level most usually means PHP configuration error or missing plugin configuration.
-Additional info level log is available as additional setting, but if log is disabled, so will info log as well.
-All logs use syslog() PHP function, therefore it's presence is mandatory for loggin functionality.
+Log levels by default ( if logging enabled ) includes warning and error level standard PHP messages.
+Additional info level log is available when [WP_DEBUG](http://codex.wordpress.org/WP_DEBUG "WP_DEBUG") is enabled.
 
 = How can I contribute? =
 In order to make contributions a lot easier, I've moved the plugin development to [GitHub](https://github.com/petermolnar/wp-ffpc "GitHub"), feel free to fork and put shiny, new things in it and get in touch with me [hello@petermolnar.eu](mailto:hello@petermolnar.eu "hello@petermolnar.eu") when you have it ready.
@@ -73,7 +76,6 @@ In order to make contributions a lot easier, I've moved the plugin development t
 = Where can I turn for support? =
 I provide support for the plugin as best as I can, but it comes without guarantee.
 Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic") and any questions on the forum.
-
 
 == Screenshots ==
 
@@ -85,14 +87,38 @@ Please post feature requests to [WP-FFPC feature request topic](http://wordpress
 
 == Changelog ==
 
+= 1.2 =
+*2013-07-17*
+
+What's new:
+
+* additional cookie patterns to exclude visitors from cache, contribution from [Harold Kyle](https://github.com/haroldkyle "Harold Kyle")
+* syslog dropped; using "regular" PHP log instead
+* pre-cache from wp-cron
+* changeable key scheme ( was fixed previously ); possibility to add user-specific cache if PHPESSID cookie is present
+
+What's fixed:
+
+* logged in cookie check fixed ( was not checking all WordPress cookies )
+* global error messages to show if settings are not saved
+
+**Dropped functionalities**
+
+* there's no info log on/off anymore, it's triggered when WP_DEBUG is active
+* sync protocols has been removed for two reasons: this has to be done by other systems and causes issues in special cases
+
+**For Devs**
+
+* the abstract class have been moved into a separate Github repository, [wp-common](https://github.com/petermolnar/wp-common "wp-common"). Because PHP is not capable of replacing/redefining classes, there's a versioning with the abstract and the utilities class, please be aware of this.
+
 = 1.1.1 =
-*2013.04.25*
+*2013-04-25*
 
 * bugfix: Memcache plugin was diplaying server status incorrectly ( although the plugin was working )
 * bugfix: typo prevented log to work correctly
 
 = 1.1 =
-*2013.04.24*
+*2013-04-24*
 
 What's new:
 
@@ -110,7 +136,7 @@ What's fixed:
 * feed caching fixed ( due to a security check it turned out feeds were excluded for a long time )
 
 = 1.0 =
-*2013.03.22*
+*2013-03-22*
 
 * plugin development using [GitHub repository](https://github.com/petermolnar/wp-ffpc "GitHub repository") from this version
 * Software licence change from GPLv2 to GPLv3
@@ -133,12 +159,12 @@ What's fixed:
 * APC entry compression support
 
 = 0.6.1 =
-*2013.03.08*
+*2013-03-08*
 
 * refactored & corrected backend status check for memcached driver
 
 = 0.6 =
-*2013.03.08*
+*2013-03-08*
 
 * true WordPress Network support:
   * if enabled network-wide, settings will be the same for every site
@@ -146,14 +172,14 @@ What's fixed:
 * delete options button to help solving problems
 
 = 0.5.1 =
-*2013.03.07*
+*2013-03-07*
 
 * settings link for plugins page
 * readme cleanup
 * setting link URL repair & cleanup
 
 = 0.5 =
-*2013.03.06*
+*2013-03-06*
 WARNING, MAJOR CHANGES!
 
 * default values bug ( causing %3C bug ) really fixed by the help of Mark Costlow <cheeks@swcp.com>
@@ -169,12 +195,12 @@ WARNING, MAJOR CHANGES!
 * donation link on the top
 
 = 0.4.3 =
-*2013.03.03*
+*2013-03-03*
 
 * long-running %3C bug fixed by the help of Mark Costlow <cheeks@swcp.com>, many thanks for it. It was cause by a bad check in the default values set-up: is_numeric applies for string numbers as well, which was unknown to me, and cause some of the values to be 0 where they should have been something different.
 
 = 0.4.2 =
-*2012.12.07*
+*2012-12-07*
 
 * added optional sync protocoll option: replace all http->https or https->http depending on request protocol
 * binary mode is working correctly with memcached extension
@@ -185,12 +211,12 @@ WARNING, MAJOR CHANGES!
 There are major problems with the "memcache" driver, the source is yet unkown. The situation is that there's no response from the memcached server using this driver; please avoid using it!
 
 = 0.4.1 =
-*2012.08.16*
+*2012-08-16*
 
 * storage key extended with scheme ( http; https; etc. ), the miss caused problems when https request server CSS and JS files via http.
 
 = 0.4 =
-*2012.08.06*
+*2012-08-06*
 
 * tested against new WordPress versions
 * added lines to "memcached" storage to be able to work with NGiNX as well
@@ -201,37 +227,37 @@ There are major problems with the "memcache" driver, the source is yet unkown. T
 * "memcache" extension fails in binary mode; the reason is under investigation
 
 = 0.3.2 =
-*2012.02.27*
+*2012-02-27*
 
 * apc_cache_info replaced with apc_sma_info, makes plugin faster
 
 = 0.3 =
-*2012.02.21*
+*2012-02-21*
 
 * added syslog debug messages possibility
 * bugfix: removed (accidently used) short_open_tags
 
 = 0.2.3 =
-*2012.02.21*
+*2012-02-21*
 
 * NGiNX-sample.conf file added, NGiNX config is created from here
 
 = 0.2.2 =
-*2012.02.21*
+*2012-02-21*
 
 * memcache types bugfix, reported in forum, thanks!
 
 = 0.2.1 =
-*2012.02.21*
+*2012-02-21*
 
 * bugfix, duplicated inclusion could emerge, fix added, thanks for Géza Kuti for reporting!
 
 = 0.2 =
-*2012.02.19*
+*2012-02-19*
 
 * added APC compression option ( requires PHP ZLIB ). Useful is output pages are large. Compression is on lowest level, therefore size/CPU load is more or less optimal.
 
 = 0.1 =
-*2012.02.16*
+*2012-02-16*
 
 * first public release
