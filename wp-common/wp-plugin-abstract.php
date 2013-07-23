@@ -527,6 +527,19 @@ if (!class_exists('WP_Plugins_Abstract_v2')) {
 		}
 
 		/**
+		 * read option; will handle network wide or standalone site options
+		 *
+		 */
+		protected function _site_url ( $site = '' ) {
+			if ( $this->network && !empty( $site ) )
+				$url = get_blog_option ( $site, 'siteurl' );
+			else
+				$url = get_bloginfo ( 'url' );
+
+			return $url;
+		}
+
+		/**
 		 * clear option; will handle network wide or standalone site options
 		 *
 		 */

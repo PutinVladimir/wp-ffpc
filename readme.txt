@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
 Tested up to: 3.5.2
-Stable tag: 1.2
+Stable tag: 1.2.1
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -86,6 +86,13 @@ Please post feature requests to [WP-FFPC feature request topic](http://wordpress
 5. NGiNX example
 
 == Changelog ==
+
+= 1.2.1 =
+*2013-07-23"
+
+What's fixed:
+
+* call to undefined function get_blog_option error fixed
 
 = 1.2 =
 *2013-07-17*

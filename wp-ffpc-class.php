@@ -1075,7 +1075,8 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				$current_blog = get_current_blog_id();
 				switch_to_blog( $site );
 
-				$url = get_blog_option ( $site, 'siteurl' );
+				$url = $this->_site_url( $site );
+				//$url = get_blog_option ( $site, 'siteurl' );
 				if ( substr( $url, -1) !== '/' )
 					$url = $url . '/';
 
@@ -1114,7 +1115,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				}
 
 				/* in case the bloglinks are relative links add the base url, site specific */
-				$baseurl = get_blog_option ( $site, 'siteurl' );
+				$baseurl = empty( $url ) ? $this->_site_url() : $url;
 				if ( !strstr( $permalink, $baseurl ) ) {
 					$permalink = $baseurl . $permalink;
 				}
