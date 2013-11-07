@@ -116,8 +116,8 @@ foreach ( $wp_ffpc_keys as $internal => $key ) {
 /* serve cache 404 status */
 if ( isset( $wp_ffpc_values['meta']['status'] ) &&  $wp_ffpc_values['meta']['status'] == 404 ) {
 	header("HTTP/1.1 404 Not Found");
-	flush();
-	die();
+//	flush();
+//	die();
 }
 
 /* server redirect cache */
@@ -253,7 +253,7 @@ function wp_ffpc_callback( $buffer ) {
 		}
 	}
 
-	if ( is_404() )
+	if ( is_404() ) 
 		$meta['status'] = 404;
 
 	/* redirect page */
@@ -304,8 +304,13 @@ function wp_ffpc_callback( $buffer ) {
 	$wp_ffpc_backend->set ( $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_meta'] ) , $meta );
 	$wp_ffpc_backend->set ( $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_data'] ) , $buffer );
 
-	/* vital for nginx, make no problem at other places */
-	header("HTTP/1.1 200 OK");
+	if ( $meta['status'] == 404 ) {
+		header("HTTP/1.1 404 Not Found");
+	}
+	else {
+		/* vital for nginx, make no problem at other places */
+		header("HTTP/1.1 200 OK");
+	}
 
 	/* echoes HTML out */
 	return $buffer;

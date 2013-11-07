@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
 Tested up to: 3.5.2
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -87,8 +87,15 @@ Please post feature requests to [WP-FFPC feature request topic](http://wordpress
 
 == Changelog ==
 
+= 1.2.2 =
+*2013-11-07*
+
+What's fixed:
+
+* 404 for first hit of 404 pages; bug report from [phoenix13](wordpress.org/support/profile/phoenix13 phoenix13)
+
 = 1.2.1 =
-*2013-07-23"
+*2013-07-23*
 
 What's fixed:
 
