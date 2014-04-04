@@ -146,7 +146,7 @@ if (!class_exists('WP_Plugins_Abstract_v2')) {
 		/**
 		 * uninstall hook function, to be extended
 		 */
-		abstract static function plugin_uninstall();
+		abstract function plugin_uninstall();
 
 		/**
 		 * first init hook function, to be extended, before options were read
