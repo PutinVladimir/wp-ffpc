@@ -100,7 +100,8 @@ $wp_ffpc_keys = array ( 'meta' => $wp_ffpc_config['prefix_meta'], 'data' => $wp_
 $wp_ffpc_values = array();
 
 foreach ( $wp_ffpc_keys as $internal => $key ) {
-	$value = $wp_ffpc_backend->get ( $wp_ffpc_backend->key ( $key ) );
+	$key = $wp_ffpc_backend->key ( $key );
+	$value = $wp_ffpc_backend->get ( $key );
 
 	if ( ! $value ) {
 		/* does not matter which is missing, we need both, if one fails, no caching */

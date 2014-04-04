@@ -387,14 +387,13 @@ if (!class_exists('WP_FFPC_Backend')) {
 				$separator = strpos( $sstring , self::port_separator );
 				$host = substr( $sstring, 0, $separator );
 				$port = substr( $sstring, $separator + 1 );
+				// unix socket failsafe
+				if ( empty ($port) ) $port = 0;
 
-				/* IP server */
-				if ( !empty ( $host )  && !empty($port) && is_numeric($port) ) {
-					$this->options['servers'][$sstring] = array (
-						'host' => $host,
-						'port' => $port
-					);
-				}
+				$this->options['servers'][$sstring] = array (
+					'host' => $host,
+					'port' => $port
+				);
 			}
 
 		}
@@ -692,11 +691,16 @@ if (!class_exists('WP_FFPC_Backend')) {
 
 			/* adding servers */
 			foreach ( $this->options['servers'] as $server_id => $server ) {
-				/* reset server status to unknown */
 				if ( $this->options['persistent'] == '1' )
-					$this->status[$server_id] = $this->connection->pconnect ( $server['host'] , $server['port'] );
+					$conn = 'pconnect';
 				else
-					$this->status[$server_id] = $this->connection->connect ( $server['host'] , $server['port'] );
+					$conn = 'connect';
+
+					/* in case of unix socket */
+				if ( $server['port'] === 0 )
+					$this->status[$server_id] = $this->connection->$conn ( 'unix:/' . $server['host'] );
+				else
+					$this->status[$server_id] = $this->connection->$conn ( $server['host'] , $server['port'] );
 
 				$this->log ( $server_id . __translate__(" added, persistent mode: ", $this->plugin_constant ) . $this->options['persistent'] );
 			}
