@@ -3,8 +3,8 @@ Contributors: cadeyrn
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
-Tested up to: 3.5.2
-Stable tag: 1.2.2
+Tested up to: 3.9
+Stable tag: 1.3
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -33,7 +33,9 @@ Many thanks for contributors, supporters, testers & bug reporters:
 * [Harold Kyle](https://github.com/haroldkyle "Harold Kyle")
 * [Eric Gilette](http://www.ericgillette.com/ "Eric Gilette")
 * [doconeill](http://wordpress.org/support/profile/doconeill "doconeill")
-* [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow").
+* [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow")
+* [Jason Miller](mailto:jason@redconfetti.com "Jason Miller")
+* [Dave Clark](https://github.com/dkcwd "Dave Clark")
 
 == Installation ==
 
@@ -86,6 +88,20 @@ Please post feature requests to [WP-FFPC feature request topic](http://wordpress
 5. NGiNX example
 
 == Changelog ==
+
+= 1.3 =
+*2014-04-04*
+
+What's fixed:
+
+* uninstall will not fail anymore ( and I hate PHP for it's retarted language restrictions )
+* typo fix for memcache functions from [Dave Clark](https://github.com/dkcwd "Dave Clark")
+* uninstall security lines from [Dave Clark](https://github.com/dkcwd "Dave Clark")
+* modification to nginx sample file from [Harold Kyle](https://github.com/haroldkyle "Harold Kyle") to skip all urls with query string present
+
+What's new:
+
+* added unix socket memcache module support ( ONLY for memcache backend for now )
 
 = 1.2.2 =
 *2013-11-07*
