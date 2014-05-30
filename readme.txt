@@ -3,19 +3,27 @@ Contributors: cadeyrn
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
-Tested up to: 3.9
-Stable tag: 1.3.1
+Tested up to: 3.9.1
+Stable tag: 1.5.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
-Fastest way of cache for WordPress: memcached + nginx!
+The fastest way to cache: use the memory!
 
 == Description ==
-WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress"). It works with any webserver, including apache2, lighttpd, nginx, however, can be connected with [NGiNX](http://NGiNX.org "NGiNX") through memcached for unbeatable speed.
-Supports PHP Memcached, PHP Memcache and APC as storage engines, subdomain and domain based WordPress Networks.
+WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress"). It works with any webserver, including apache2, lighttpd, nginx.
+It can be configured to join forces with [NGiNX](http://NGiNX.org "NGiNX")'s built-in [memcached plugin](http://nginx.org/en/docs/http/ngx_http_memcached_module.html "memcached plugin") for unbeatable speed.
 
 = Features: =
-* Wordpress Network support ( for subdomain layout )
+* Wordpress Network support
+  * fully supported domain/subdomain based WordPress Networks on per site setup as well
+  * will work in Network Enabled mode only for subdirectory based Multisites ( no per site setting possibility )
+* supports variable backends
+  * memcached with [PHP Memcached](http://php.net/manual/en/book.memcached.php "Memcached")
+  * memcached with [PHP Memcache](http://php.net/manual/en/book.memcache.php "Memcache")
+  * [APC](http://php.net/manual/en/book.apc.php "APC")
+  * [APCu](http://pecl.php.net/package/APCu "APC User Cache")
+  * [Xcache](http://xcache.lighttpd.net/ "Xcache") - not stable yet, volunteer testers required!
 * cache exclude possibilities ( home, feeds, archieves, pages, singles )
 * (optional) cache for logged-in users
 * 404 caching
@@ -26,9 +34,8 @@ Supports PHP Memcached, PHP Memcache and APC as storage engines, subdomain and d
 * talkative log for [WP_DEBUG](http://codex.wordpress.org/WP_DEBUG "WP_DEBUG")
 * multiple memcached upstream support
 * precache ( manually or by timed by wp-cron )
-* [NGiNX](http://NGiNX.org "NGiNX") compatibility
 
-Many thanks for contributors, supporters, testers & bug reporters:
+Many thanks for donations, contributors, supporters, testers & bug reporters:
 
 * [Harold Kyle](https://github.com/haroldkyle "Harold Kyle")
 * [Eric Gilette](http://www.ericgillette.com/ "Eric Gilette")
@@ -64,9 +71,11 @@ From version 1.0, the plugin supports subdomain based WordPress Network with pos
 
 and **at least one** of the following for storage backend:
 
-* PHP APC
-* PHP Memcached > 0.1.0
-* PHP Memcache > 2.1.0
+* memcached with [PHP Memcached](http://php.net/manual/en/book.memcached.php "Memcached") > 0.1.0
+* memcached with [PHP Memcache](http://php.net/manual/en/book.memcache.php "Memcache") > 2.1.0
+* [APC](http://php.net/manual/en/book.apc.php "APC")
+* [APCu](http://pecl.php.net/package/APCu "APC User Cache")
+* [Xcache](http://xcache.lighttpd.net/ "Xcache")
 
 = How logging works in the plugin? =
 Log levels by default ( if logging enabled ) includes warning and error level standard PHP messages.
@@ -88,6 +97,43 @@ Please post feature requests to [WP-FFPC feature request topic](http://wordpress
 5. NGiNX example
 
 == Changelog ==
+
+= 1.5.0 =
+*2014-05-30*
+
+What's new:
+
+* APCu backend added ( APCu is a stripped version of APC with only user object cache functionality what can be used with PHP 5.4 & 5.5 besides [Opcache](http://php.net/manual/en/book.opcache.php "PHP Opcache") )
+
+= 1.4.0 =
+*2014-05-12*
+
+What's new:
+
+* Xcache backend added ( theoretical, partially tested, volunteer testers required )
+
+What's fixed:
+
+* invalidation for comment actions added
+
+= 1.3.3 =
+*2014-04-29*
+
+What's changed:
+
+* removed broadcast message
+* better logs ( additional logs and adding translation compatibility )
+
+= 1.3.2 =
+*2014-04-09*
+
+What's fixed:
+
+* 1.3.1 was a quickfix for an uncommitted change required for 1.3 to work.
+* removed PHP warning in case WP_CACHE was off ( see https://github.com/petermolnar/wp-ffpc/issues/14 )
+* PHP notices in log from [Harold Kyle](https://github.com/haroldkyle "Harold Kyle")
+* ms is really second
+
 
 = 1.3 =
 *2014-04-04*
