@@ -116,9 +116,8 @@ if (!class_exists('WP_FFPC_Backend')) {
 		public function key ( &$prefix ) {
 			/* data is string only with content, meta is not used in nginx */
 			$key = $prefix . str_replace ( array_keys( $this->urimap ), $this->urimap, $this->options['key'] );
-			$this->log (  __translate__('original key configuration: ', $this->plugin_constant ) . $this->options['key'] );
-			$this->log (  __translate__('setting key to: ', $this->plugin_constant ) . $key );
-
+			$this->log ( sprintf( __translate__( 'original key configuration: %s', $this->plugin_constant ),  $this->options['key'] ) );
+			$this->log ( sprintf( __translate__( 'setting key to: %s', $this->plugin_constant ),  $key ) );
 			return $key;
 		}
 
@@ -137,14 +136,14 @@ if (!class_exists('WP_FFPC_Backend')) {
 				return false;
 
 			/* log the current action */
-			$this->log (  __translate__('get ', $this->plugin_constant ). $key );
+			$this->log ( sprintf( __translate__( 'get %s', $this->plugin_constant ),  $key ) );
 
 			/* proxy to internal function */
 			$internal = $this->proxy( 'get' );
 			$result = $this->$internal( $key );
 
 			if ( $result === false  )
-				$this->log (  __translate__( "failed to get entry: ", $this->plugin_constant ) . $key );
+				$this->log ( sprintf( __translate__( 'failed to get entry: %s', $this->plugin_constant ),  $key ) );
 
 			return $result;
 		}
@@ -164,15 +163,15 @@ if (!class_exists('WP_FFPC_Backend')) {
 				return false;
 
 			/* log the current action */
-			$this->log( __translate__('set ', $this->plugin_constant ) . $key . __translate__(' expiration time: ', $this->plugin_constant ) . $this->options['expire']);
+			$this->log ( sprintf( __translate__( 'set %s expiration time: %s', $this->plugin_constant ),  $key, $this->options['expire'] ) );
 
 			/* proxy to internal function */
-			$internal = $this->options['cache_type'] . '_set';
+			$internal = $this->proxy( 'set' );
 			$result = $this->$internal( $key, $data );
 
 			/* check result validity */
 			if ( $result === false )
-				$this->log (  __translate__('failed to set entry: ', $this->plugin_constant ) . $key, LOG_WARNING );
+				$this->log ( sprintf( __translate__( 'failed to set entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 
 			return $result;
 		}
@@ -182,6 +181,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 *
 		 * @param string $post_id	ID of post to invalidate
 		 * @param boolean $force 	Force flush cache
+		 * @param boolean $comment	Clear a single page based on comment trigger
 		 *
 		 */
 		public function clear ( $post_id = false, $force = false ) {
@@ -197,7 +197,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 			}
 
 			/* if invalidation method is set to full, flush cache */
-			if ( $this->options['invalidation_method'] === 0 || $force === true ) {
+			if ( ( $this->options['invalidation_method'] === 0 || $force === true ) ) {
 				/* log action */
 				$this->log (  __translate__('flushing cache', $this->plugin_constant ) );
 
@@ -232,7 +232,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 
 				/* no path, don't do anything */
 				if ( empty( $path ) ) {
-					$this->log (  __translate__('unable to determine path from Post Permalink, post ID: ', $this->plugin_constant ) . $post_id , LOG_WARNING );
+					$this->log ( sprintf( __translate__( 'unable to determine path from Post Permalink, post ID: %s', $this->plugin_constant ),  $post_id ), LOG_WARNING );
 					return false;
 				}
 
@@ -262,6 +262,25 @@ if (!class_exists('WP_FFPC_Backend')) {
 			/* run clear */
 			$internal = $this->proxy ( 'clear' );
 			$this->$internal ( $to_clear );
+		}
+
+		/**
+		 * clear cache triggered by new comment
+		 *
+		 * @param $comment_id	Comment ID
+		 * @param $comment_object	The whole comment object ?
+		 */
+		public function clear_by_comment ( $comment_id, $comment_object ) {
+			if ( empty( $comment_id ) )
+				return false;
+
+			$comment = get_comment( $comment_id );
+			$post_id = $comment->comment_post_ID;
+			if ( !empty( $post_id ) )
+				$this->clear ( $post_id );
+
+			unset ( $comment );
+			unset ( $post_id );
 		}
 
 		/**
@@ -429,13 +448,13 @@ if (!class_exists('WP_FFPC_Backend')) {
 		 */
 		private function apc_init () {
 			/* verify apc functions exist, apc extension is loaded */
-			if ( ! function_exists( 'apc_sma_info' ) ) {
+			if ( ! function_exists( 'apc_cache_info' ) ) {
 				$this->log (  __translate__('APC extension missing', $this->plugin_constant ) );
 				return false;
 			}
 
 			/* verify apc is working */
-			if ( apc_sma_info() ) {
+			if ( apc_cache_info("user",true) ) {
 				$this->log (  __translate__('backend OK', $this->plugin_constant ) );
 				$this->alive = true;
 			}
@@ -499,16 +518,194 @@ if (!class_exists('WP_FFPC_Backend')) {
 
 			foreach ( $keys as $key => $dummy ) {
 				if ( ! apc_delete ( $key ) ) {
-					$this->log (  __translate__('Failed to delete APC entry: ', $this->plugin_constant ) . $key, LOG_ERR );
+					$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
 					//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
 				}
 				else {
-					$this->log (  __translate__( 'APC entry delete: ', $this->plugin_constant ) . $key );
+					$this->log ( sprintf( __translate__( 'APC entry delete: %s', $this->plugin_constant ),  $key ) );
 				}
 			}
 		}
 
 		/*********************** END APC FUNCTIONS ***********************/
+		/*********************** APCu FUNCTIONS ***********************/
+		/**
+		 * init apcu backend: test APCu availability and set alive status
+		 */
+		private function apcu_init () {
+			/* verify apcu functions exist, apcu extension is loaded */
+			if ( ! function_exists( 'apcu_cache_info' ) ) {
+				$this->log (  __translate__('APCu extension missing', $this->plugin_constant ) );
+				return false;
+			}
+
+			/* verify apcu is working */
+			if ( apcu_cache_info("user",true) ) {
+				$this->log (  __translate__('backend OK', $this->plugin_constant ) );
+				$this->alive = true;
+			}
+		}
+
+		/**
+		 * health checker for APC
+		 *
+		 * @return boolean Aliveness status
+		 *
+		 */
+		private function apcu_status () {
+			$this->status = true;
+			return $this->alive;
+		}
+
+		/**
+		 * get function for APC backend
+		 *
+		 * @param string $key Key to get values for
+		 *
+		 * @return mixed Fetched data based on key
+		 *
+		*/
+		private function apcu_get ( &$key ) {
+			return apcu_fetch( $key );
+		}
+
+		/**
+		 * Set function for APC backend
+		 *
+		 * @param string $key Key to set with
+		 * @param mixed $data Data to set
+		 *
+		 * @return boolean APC store outcome
+		 */
+		private function apcu_set (  &$key, &$data ) {
+			return apcu_store( $key , $data , $this->options['expire'] );
+		}
+
+
+		/**
+		 * Flushes APC user entry storage
+		 *
+		 * @return boolean APC flush outcome status
+		 *
+		*/
+		private function apcu_flush ( ) {
+			return apcu_clear_cache();
+		}
+
+		/**
+		 * Removes entry from APC or flushes APC user entry storage
+		 *
+		 * @param mixed $keys Keys to clear, string or array
+		*/
+		private function apcu_clear ( &$keys ) {
+			/* make an array if only one string is present, easier processing */
+			if ( !is_array ( $keys ) )
+				$keys = array ( $keys => true );
+
+			foreach ( $keys as $key => $dummy ) {
+				if ( ! apcu_delete ( $key ) ) {
+					$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+					//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
+				}
+				else {
+					$this->log ( sprintf( __translate__( 'APC entry delete: %s', $this->plugin_constant ),  $key ) );
+				}
+			}
+		}
+
+		/*********************** END APC FUNCTIONS ***********************/
+
+		/*********************** XCACHE FUNCTIONS ***********************/
+		/**
+		 * init apc backend: test APC availability and set alive status
+		 */
+		private function xcache_init () {
+			/* verify apc functions exist, apc extension is loaded */
+			if ( ! function_exists( 'xcache_info' ) ) {
+				$this->log (  __translate__('XCACHE extension missing', $this->plugin_constant ) );
+				return false;
+			}
+
+			/* verify apc is working */
+			$info = xcache_info();
+			if ( !empty( $info )) {
+				$this->log (  __translate__('backend OK', $this->plugin_constant ) );
+				$this->alive = true;
+			}
+		}
+
+		/**
+		 * health checker for Xcache
+		 *
+		 * @return boolean Aliveness status
+		 *
+		 */
+		private function xcache_status () {
+			$this->status = true;
+			return $this->alive;
+		}
+
+		/**
+		 * get function for APC backend
+		 *
+		 * @param string $key Key to get values for
+		 *
+		 * @return mixed Fetched data based on key
+		 *
+		*/
+		private function xcache_get ( &$key ) {
+			if ( xcache_isset ( $key ) )
+				return xcache_get( $key );
+			else
+				return false;
+		}
+
+		/**
+		 * Set function for APC backend
+		 *
+		 * @param string $key Key to set with
+		 * @param mixed $data Data to set
+		 *
+		 * @return boolean APC store outcome
+		 */
+		private function xcache_set (  &$key, &$data ) {
+			return xcache_set( $key , $data , $this->options['expire'] );
+		}
+
+
+		/**
+		 * Flushes APC user entry storage
+		 *
+		 * @return boolean APC flush outcome status
+		 *
+		*/
+		private function xcache_flush ( ) {
+			return xcache_clear_cache(XC_TYPE_VAR);
+		}
+
+		/**
+		 * Removes entry from APC or flushes APC user entry storage
+		 *
+		 * @param mixed $keys Keys to clear, string or array
+		*/
+		private function xcache_clear ( &$keys ) {
+			/* make an array if only one string is present, easier processing */
+			if ( !is_array ( $keys ) )
+				$keys = array ( $keys => true );
+
+			foreach ( $keys as $key => $dummy ) {
+				if ( ! xcache_unset ( $key ) ) {
+					$this->log ( sprintf( __translate__( 'Failed to delete XCACHE entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+					//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
+				}
+				else {
+					$this->log ( sprintf( __translate__( 'XCACHE entry delete: %s', $this->plugin_constant ),  $key ) );
+				}
+			}
+		}
+
+		/*********************** END XCACHE FUNCTIONS ***********************/
+
 
 		/*********************** MEMCACHED FUNCTIONS ***********************/
 		/**
@@ -567,7 +764,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 				/* only add servers that does not exists already  in connection pool */
 				if ( !@array_key_exists($server_id , $servers_alive ) ) {
 					$this->connection->addServer( $server['host'], $server['port'] );
-					$this->log (  $server_id . __translate__(" added, persistent mode: ", $this->plugin_constant ) . $this->options['persistent'] );
+					$this->log ( sprintf( __translate__( '%s added, persistent mode: %s', $this->plugin_constant ),  $server_id, $this->options['persistent'] ) );
 				}
 			}
 
@@ -591,7 +788,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 				$this->status[$server_id] = 0;
 				/* if server uptime is not empty, it's most probably up & running */
 				if ( !empty($details['uptime']) ) {
-					$this->log (  $server_id . __translate__(" server is up & running", $this->plugin_constant ));
+					$this->log ( sprintf( __translate__( '%s server is up & running', $this->plugin_constant ),  $server_id ) );
 					$this->status[$server_id] = 1;
 				}
 			}
@@ -621,7 +818,8 @@ if (!class_exists('WP_FFPC_Backend')) {
 			/* if storing failed, log the error code */
 			if ( $result === false ) {
 				$code = $this->connection->getResultCode();
-				$this->log (  __translate__('unable to set entry ', $this->plugin_constant ) . $key . __translate__( ', Memcached error code: ', $this->plugin_constant ) . $code );
+				$this->log ( sprintf( __translate__( 'unable to set entry: %s', $this->plugin_constant ),  $key ) );
+				$this->log ( sprintf( __translate__( 'Memcached error code: %s', $this->plugin_constant ),  $code ) );
 				//throw new Exception ( __translate__('Unable to store Memcached entry ', $this->plugin_constant ) . $key . __translate__( ', error code: ', $this->plugin_constant ) . $code );
 			}
 
@@ -653,10 +851,11 @@ if (!class_exists('WP_FFPC_Backend')) {
 
 				if ( $kresult === false ) {
 					$code = $this->connection->getResultCode();
-					$this->log (  __translate__('unable to delete entry ', $this->plugin_constant ) . $key . __translate__( ', Memcached error code: ', $this->plugin_constant ) . $code );
+					$this->log ( sprintf( __translate__( 'unable to delete entry: %s', $this->plugin_constant ),  $key ) );
+					$this->log ( sprintf( __translate__( 'Memcached error code: %s', $this->plugin_constant ),  $code ) );
 				}
 				else {
-					$this->log (  __translate__( 'entry deleted: ', $this->plugin_constant ) . $key );
+					$this->log ( sprintf( __translate__( 'entry deleted: %s', $this->plugin_constant ),  $key ) );
 				}
 			}
 		}
@@ -702,7 +901,7 @@ if (!class_exists('WP_FFPC_Backend')) {
 				else
 					$this->status[$server_id] = $this->connection->$conn ( $server['host'] , $server['port'] );
 
-				$this->log ( $server_id . __translate__(" added, persistent mode: ", $this->plugin_constant ) . $this->options['persistent'] );
+				$this->log ( sprintf( __translate__( '%s added, persistent mode: %s', $this->plugin_constant ),  $server_id, $this->options['persistent'] ) );
 			}
 
 			/* backend is now alive */
@@ -721,9 +920,9 @@ if (!class_exists('WP_FFPC_Backend')) {
 			foreach ( $this->options['servers'] as $server_id => $server ) {
 				$this->status[$server_id] = $this->connection->getServerStatus( $server['host'], $server['port'] );
 				if ( $this->status[$server_id] == 0 )
-					$this->log ( $server_id . __translate__(" server is down", $this->plugin_constant ));
+					$this->log ( sprintf( __translate__( '%s server is down', $this->plugin_constant ),  $server_id ) );
 				else
-					$this->log ( $server_id . __translate__(" server is up & running", $this->plugin_constant ));
+					$this->log ( sprintf( __translate__( '%s server is up & running', $this->plugin_constant ),  $server_id ) );
 			}
 		}
 
@@ -772,10 +971,10 @@ if (!class_exists('WP_FFPC_Backend')) {
 				$kresult = $this->connection->delete( $key );
 
 				if ( $kresult === false ) {
-					$this->log (  __translate__('unable to delete entry ', $this->plugin_constant ) . $key );
+					$this->log ( sprintf( __translate__( 'unable to delete entry: %s', $this->plugin_constant ),  $key ) );
 				}
 				else {
-					$this->log (  __translate__( 'entry deleted: ', $this->plugin_constant ) . $key );
+					$this->log ( sprintf( __translate__( 'entry deleted: %s', $this->plugin_constant ),  $key ) );
 				}
 			}
 		}

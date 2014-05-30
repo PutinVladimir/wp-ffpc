@@ -302,10 +302,13 @@ function wp_ffpc_callback( $buffer ) {
 		$buffer = substr_replace( $buffer, $insertion, $index, 0);
 	}
 
-	$wp_ffpc_backend->set ( $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_meta'] ) , $meta );
-	$wp_ffpc_backend->set ( $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_data'] ) , $buffer );
+	$prefix_meta = $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_meta'] );
+	$wp_ffpc_backend->set ( $prefix_meta, $meta );
 
-	if ( $meta['status'] == 404 ) {
+	$prefix_data = $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_data'] );
+	$wp_ffpc_backend->set ( $prefix_data , $buffer );
+
+	if ( !empty( $meta['status'] ) && $meta['status'] == 404 ) {
 		header("HTTP/1.1 404 Not Found");
 	}
 	else {

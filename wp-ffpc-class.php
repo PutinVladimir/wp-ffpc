@@ -30,7 +30,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 	 * @var array $shell_possibilities	List of possible precache worker callers
 	 [TODO] finish list of vars
 	 */
-	class WP_FFPC extends WP_Plugins_Abstract_v2 {
+	class WP_FFPC extends WP_Plugins_Abstract_v3 {
 		const host_separator  = ',';
 		const port_separator  = ':';
 		const donation_id_key = 'hosted_button_id=';
@@ -115,12 +115,16 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/* cache type possible values array */
 			$this->select_cache_type = array (
 				'apc' => __( 'APC' , $this->plugin_constant ),
+				'apcu' => __( 'APCu' , $this->plugin_constant ),
+				'xcache' => __( 'XCache' , $this->plugin_constant ),
 				'memcache' => __( 'PHP Memcache' , $this->plugin_constant ),
 				'memcached' => __( 'PHP Memcached' , $this->plugin_constant ),
 			);
 			/* check for required functions / classes for the cache types */
 			$this->valid_cache_type = array (
-				'apc' => function_exists( 'apc_sma_info' ) ? true : false,
+				'apc' => function_exists( 'apc_cache_info' ) ? true : false,
+				'apcu' => function_exists( 'apcu_cache_info' ) ? true : false,
+				'xcache' => function_exists( 'xcache_info' ) ? true : false,
 				'memcache' => class_exists ( 'Memcache') ? true : false,
 				'memcached' => class_exists ( 'Memcached') ? true : false,
 			);
@@ -177,18 +181,29 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				add_action( 'publish_' . $post_type , array( &$this->backend , 'clear' ), 0 );
 			}
 
+			/* comments invalidation hooks */
+			if ( $this->options['comments_invalidate'] ) {
+				add_action( 'comment_post', array( &$this->backend , 'clear' ), 0 );
+				add_action( 'edit_comment', array( &$this->backend , 'clear' ), 0 );
+				add_action( 'trashed_comment', array( &$this->backend , 'clear' ), 0 );
+				add_action( 'pingback_post', array( &$this->backend , 'clear' ), 0 );
+				add_action( 'trackback_post', array( &$this->backend , 'clear' ), 0 );
+				add_action( 'wp_insert_comment', array( &$this->backend , 'clear' ), 0 );
+				add_action( '', array( &$this->backend , 'clear' ), 0 );
+			}
+
 			/* invalidation on some other ocasions as well */
 			add_action( 'switch_theme', array( &$this->backend , 'clear' ), 0 );
 			add_action( 'deleted_post', array( &$this->backend , 'clear' ), 0 );
 			add_action( 'edit_post', array( &$this->backend , 'clear' ), 0 );
 
 			/* add filter for catching canonical redirects */
-			add_filter('redirect_canonical', 'wp_ffpc_redirect_callback', 10, 2);
+			if ( WP_CACHE )
+				add_filter('redirect_canonical', 'wp_ffpc_redirect_callback', 10, 2);
 
 			/* clean up schedule if needed */
 			if ( !isset( $this->options['precache_schedule'] ) || $this->options['precache_schedule'] == 'null' ) {
-				$this->log ( 'CRON clearing event' );
-				wp_clear_scheduled_hook ( self::precache_id );
+				$this->log ( sprintf ( __( 'clearing scheduled hook %s', $this->plugin_constant ), self::precache_id ) );
 			}
 
 			/* add precache coldrun action */
@@ -208,11 +223,11 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			if ( file_exists ( $this->acache ) && ! is_writable ( $this->acache ) )
 				$this->errors['no_acache_write'] = __("Advanced cache file is not writeable!<br />Please change the permissions on the file: ", $this->plugin_constant) . $this->acache;
 
-			if ( $this->options['cache_type'] == 'memcached' && !class_exists('Memcached') )
-				$this->errors['no_memcached'] = __('Memcached cache backend activated but no PHP memcached extension was found.<br />Please either use different backend or activate the module!', $this->plugin_constant);
-
-			if ( $this->options['cache_type'] == 'memcache' && !class_exists('Memcache') )
-				$this->errors['no_memcached'] = __('Memcache cache backend activated but no PHP memcache extension was found.<br />Please either use different backend or activate the module!', $this->plugin_constant);
+			foreach ( $this->valid_cache_type as $backend => $status ) {
+				if ( $this->options['cache_type'] == $backend && ! $status ) {
+					$this->errors['no_backend'] = sprintf ( __('%s cache backend activated but no PHP %s extension was found.<br />Please either use different backend or activate the module!', $this->plugin_constant), $backend, $backend );
+				}
+			}
 
 			/* get the current runtime configuration for memcache in PHP because Memcache in binary mode is really problematic */
 			if ( extension_loaded ( 'memcache' )  ) {
@@ -360,13 +375,6 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 			/**
 			 * if options were saved, display saved message
 			 */
-			if ( ! empty( $this->broadcast_message ) ) { ?>
-				<div class="updated"><?php echo $this->broadcast_message; ?></div>
-			<?php }
-
-			/**
-			 * if options were saved, display saved message
-			 */
 			if (isset($_GET[ self::key_save ]) && $_GET[ self::key_save ]=='true' || $this->status == 1) { ?>
 				<div class='updated settings-error'><p><strong><?php _e( 'Settings saved.' , $this->plugin_constant ) ?></strong></p></div>
 			<?php }
@@ -448,7 +456,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 					</dd>
 
 					<dt>
-						<label for="expire"><?php _e('Expiration time (ms)', $this->plugin_constant); ?></label>
+						<label for="expire"><?php _e('Expiration time (seconds)', $this->plugin_constant); ?></label>
 					</dt>
 					<dd>
 						<input type="number" name="expire" id="expire" value="<?php echo $this->options['expire']; ?>" />
@@ -471,6 +479,14 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 							<?php $this->print_select_options ( $this->select_invalidation_method , $this->options['invalidation_method'] ) ?>
 						</select>
 						<span class="description"><?php _e('Select cache invalidation method. <ol><li><em>flush cache</em> - clears everything in storage, <strong>including values set by other applications</strong></li><li><em>only modified post</em> - clear only the modified posts entry, everything else remains in cache</li><li><em>modified post and all taxonomies</em> - removes all taxonomy term cache ( categories, tags, home, etc ) and the modified post as well</li></ol>', $this->plugin_constant); ?></span>
+					</dd>
+
+					<dt>
+						<label for="comments_invalidate"><?php _e('Invalidate on comment actions', $this->plugin_constant); ?></label>
+					</dt>
+					<dd>
+						<input type="checkbox" name="comments_invalidate" id="comments_invalidate" value="1" <?php checked($this->options['comments_invalidate'],true); ?> />
+						<span class="description"><?php _e('Trigger cache invalidation when a comments is posted, edited, trashed. ', $this->plugin_constant); ?></span>
 					</dd>
 
 					<dt>
@@ -750,7 +766,7 @@ if ( ! class_exists( 'WP_FFPC' ) ) {
 				$this->scheduled = wp_schedule_event( time(), $this->options['precache_schedule'] , self::precache_id );
 			}
 			elseif ( ( !isset($this->options['precache_schedule']) || $this->options['precache_schedule'] == 'null' ) && !empty( $schedule ) ) {
-				$this->log ( __('Clearing WP-CRON clearing event ' , $this->plugin_constant ) );
+				$this->log ( __('Clearing WP-CRON scheduled hook ' , $this->plugin_constant ) );
 				wp_clear_scheduled_hook ( self::precache_id );
 			}
 
