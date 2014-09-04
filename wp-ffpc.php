@@ -1,9 +1,9 @@
 <?php
 /*
 Plugin Name: WP-FFPC
-Plugin URI: http://petermolnar.eu/wordpress/wp-ffpc
-Description: WordPress cache plugin for memcached & nginx - unbeatable speed
-Version: 1.5.0
+Plugin URI: https://github.com/petermolnar/wp-ffpc
+Description: WordPress in-memory full page cache plugin
+Version: 1.6.0
 Author: Peter Molnar <hello@petermolnar.eu>
 Author URI: http://petermolnar.eu/
 License: GPLv3
@@ -29,6 +29,8 @@ include_once ( 'wp-ffpc-class.php' );
 
 $wp_ffpc_defaults = array (
 	'hosts'=>'127.0.0.1:11211',
+	'authpass'=>'',
+	'authuser'=>'',
 	'expire'=>300,
 	'invalidation_method'=>0,
 	'prefix_meta' =>'meta-',
@@ -43,6 +45,8 @@ $wp_ffpc_defaults = array (
 	'nocache_single' => false,
 	'nocache_page' => false,
 	'nocache_cookies' => false,
+	'nocache_dyn' => true,
+	'nocache_url' => '',
 	'persistent' => false,
 	'response_header' => false,
 	'generate_time' => false,
@@ -51,6 +55,6 @@ $wp_ffpc_defaults = array (
 	'comments_invalidate' => true,
 );
 
-$wp_ffpc = new WP_FFPC ( 'wp-ffpc', '1.4.0', 'WP-FFPC', $wp_ffpc_defaults, 'https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC' );
+$wp_ffpc = new WP_FFPC ( 'wp-ffpc', '1.6.0', 'WP-FFPC', $wp_ffpc_defaults, 'PeterMolnar_WordPressPlugins_wp-ffpc_HU' , 'WP-FFPC' , 'FA3NT7XDVHPWU' );
 
 ?>

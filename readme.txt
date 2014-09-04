@@ -3,8 +3,8 @@ Contributors: cadeyrn
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
-Tested up to: 3.9.1
-Stable tag: 1.5.0
+Tested up to: 4.0
+Stable tag: 1.6.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -17,14 +17,14 @@ It can be configured to join forces with [NGiNX](http://NGiNX.org "NGiNX")'s bui
 = Features: =
 * Wordpress Network support
   * fully supported domain/subdomain based WordPress Networks on per site setup as well
-  * will work in Network Enabled mode only for subdirectory based Multisites ( no per site setting possibility )
-* supports variable backends
+  * will work in Network Enabled mode only for subdirectory based Multisites ( per site settings will not work in this case )
+* supports various backends
   * memcached with [PHP Memcached](http://php.net/manual/en/book.memcached.php "Memcached")
   * memcached with [PHP Memcache](http://php.net/manual/en/book.memcache.php "Memcache")
   * [APC](http://php.net/manual/en/book.apc.php "APC")
   * [APCu](http://pecl.php.net/package/APCu "APC User Cache")
   * [Xcache](http://xcache.lighttpd.net/ "Xcache") - not stable yet, volunteer testers required!
-* cache exclude possibilities ( home, feeds, archieves, pages, singles )
+* cache exclude options ( home, feeds, archieves, pages, singles; regex based url exclusion )
 * (optional) cache for logged-in users
 * 404 caching
 * canonical redirects caching
@@ -43,6 +43,8 @@ Many thanks for donations, contributors, supporters, testers & bug reporters:
 * [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow")
 * [Jason Miller](mailto:jason@redconfetti.com "Jason Miller")
 * [Dave Clark](https://github.com/dkcwd "Dave Clark")
+* Miguel Clara
+* [plescheff](https://github.com/plescheff)
 
 == Installation ==
 
@@ -97,6 +99,29 @@ Please post feature requests to [WP-FFPC feature request topic](http://wordpress
 5. NGiNX example
 
 == Changelog ==
+
+Version numbering logic:
+
+* every A. indicates BIG changes.
+* every .B version indicates new features.
+* every ..C indicates bugfixes for A.B version.
+
+= 1.6.0 =
+*2014-05-30*
+
+What's new:
+
+* added functionality to exclude regex urls, contribution from [plescheff](https://github.com/plescheff/wp-ffpc/commit/3c875ad4fe1e083d3968421dd83b9c179c686649)
+* added functionality to include "?" containing URL
+
+What's fixed:
+
+* some warning messages removed in case there's not a single backend installed when the plugin is activated
+
+Under the hood:
+
+* major changes to the abstract wp-common class for better interoperability between my plugins
+
 
 = 1.5.0 =
 *2014-05-30*
