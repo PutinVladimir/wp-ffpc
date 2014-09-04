@@ -26,7 +26,7 @@ if (defined('SID') && SID != '')
 $wp_ffpc_uri = $_SERVER['REQUEST_URI'];
 
 /* no cache for uri with query strings, things usually go bad that way */
-if ( stripos($wp_ffpc_uri, '?') !== false)
+if ( isset($wp_ffpc_config['nocache_dyn']) && !empty($wp_ffpc_config['nocache_dyn']) && stripos($wp_ffpc_uri, '?') !== false )
 	return false;
 
 /* no cache for pages starting with /wp- like WP admin */
@@ -38,9 +38,8 @@ if ( stripos($wp_ffpc_uri, 'robots.txt') )
 	return false;
 
 /* multisite files can be too large for memcached */
-if ( function_exists('is_multisite') && stripos($wp_ffpc_uri, '/files/') )
-	if ( is_multisite() )
-		return false;
+if ( function_exists('is_multisite') && stripos($wp_ffpc_uri, '/files/') && is_multisite() )
+	return false;
 
 /* check if config is network active: use network config */
 if (!empty ( $wp_ffpc_config['network'] ) )
@@ -64,6 +63,14 @@ if ( isset($wp_ffpc_config['nocache_cookies']) && !empty($wp_ffpc_config['nocach
 				}
 			}
 		}
+	}
+}
+
+/* no cache for excluded URL patterns */
+if ( isset($wp_ffpc_config['nocache_url']) && trim($wp_ffpc_config['nocache_url']) ) {
+	$pattern = sprintf('#%s#', trim($wp_ffpc_config['nocache_url']));
+	if ( preg_match($pattern, $wp_ffpc_uri) ) {
+		return false;
 	}
 }
 
@@ -117,13 +124,16 @@ foreach ( $wp_ffpc_keys as $internal => $key ) {
 /* serve cache 404 status */
 if ( isset( $wp_ffpc_values['meta']['status'] ) &&  $wp_ffpc_values['meta']['status'] == 404 ) {
 	header("HTTP/1.1 404 Not Found");
-//	flush();
-//	die();
+	/* if I kill the page serving here, the 404 page will not be showed at all, so we do not do that
+	 * flush();
+	 * die();
+	 */
 }
 
 /* server redirect cache */
 if ( isset( $wp_ffpc_values['meta']['redirect'] ) && $wp_ffpc_values['meta']['redirect'] ) {
 	header('Location: ' . $wp_ffpc_values['meta']['redirect'] );
+	/* cut the connection as fast as possible */
 	flush();
 	die();
 }
@@ -134,6 +144,7 @@ if ( array_key_exists( "HTTP_IF_MODIFIED_SINCE" , $_SERVER ) && !empty( $wp_ffpc
 	/* check is cache is still valid */
 	if ( $if_modified_since >= $wp_ffpc_values['meta']['lastmodified'] ) {
 		header("HTTP/1.0 304 Not Modified");
+		/* connection cut for faster serving */
 		flush();
 		die();
 	}
@@ -254,7 +265,7 @@ function wp_ffpc_callback( $buffer ) {
 		}
 	}
 
-	if ( is_404() ) 
+	if ( is_404() )
 		$meta['status'] = 404;
 
 	/* redirect page */
