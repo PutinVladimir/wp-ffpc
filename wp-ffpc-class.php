@@ -140,6 +140,7 @@ class WP_FFPC extends PluginAbstract {
 			0 => __( 'flush cache' , $this->plugin_constant ),
 			1 => __( 'only modified post' , $this->plugin_constant ),
 			2 => __( 'modified post and all taxonomies' , $this->plugin_constant ),
+			3 => __( 'modified post and posts index page' , $this->plugin_constant ),
 		);
 
 		/* map of possible key masks */
@@ -483,7 +484,20 @@ class WP_FFPC extends PluginAbstract {
 					<select name="invalidation_method" id="invalidation_method">
 						<?php $this->print_select_options ( $this->select_invalidation_method , $this->options['invalidation_method'] ) ?>
 					</select>
-					<span class="description"><?php _e('Select cache invalidation method. <ol><li><em>flush cache</em> - clears everything in storage, <strong>including values set by other applications</strong></li><li><em>only modified post</em> - clear only the modified posts entry, everything else remains in cache</li><li><em>modified post and all taxonomies</em> - removes all taxonomy term cache ( categories, tags, home, etc ) and the modified post as well</li></ol>', $this->plugin_constant); ?></span>
+					<div class="description"><?php _e('Select cache invalidation method.', $this->plugin_constant); ?>
+						<ol>
+							<?php
+							$invalidation_method_description = array(
+								'clears everything in storage, <strong>including values set by other applications</strong>',
+								'clear only the modified posts entry, everything else remains in cache',
+								'removes all taxonomy term cache ( categories, tags, home, etc ) and the modified post as well<br><strong>Caution! Slows down page/post saving when there are many tags.</strong>',
+								'clear cache for modified post and posts index page'
+							);
+							foreach ($this->select_invalidation_method AS $current_key => $current_invalidation_method) {
+								printf('<li><em>%1$s</em> - %2$s</li>', $current_invalidation_method, $invalidation_method_description[$current_key]);
+							} ?>
+						</ol>
+					</div>
 				</dd>
 
 				<dt>

@@ -25,6 +25,7 @@ if (defined('SID') && SID != '')
 /* request uri */
 $wp_ffpc_uri = $_SERVER['REQUEST_URI'];
 
+
 /* no cache for uri with query strings, things usually go bad that way */
 if ( isset($wp_ffpc_config['nocache_dyn']) && !empty($wp_ffpc_config['nocache_dyn']) && stripos($wp_ffpc_uri, '?') !== false )
 	return false;
@@ -74,11 +75,13 @@ if ( isset($wp_ffpc_config['nocache_url']) && trim($wp_ffpc_config['nocache_url'
 	}
 }
 
+
 /* canonical redirect storage */
 $wp_ffpc_redirect = null;
 /* fires up the backend storage array with current config */
 include_once ('wp-ffpc-backend.php');
 $wp_ffpc_backend = new WP_FFPC_Backend( $wp_ffpc_config );
+
 
 /* no cache for for logged in users unless it's set
    identifier cookies are listed in backend as var for easier usage
@@ -94,6 +97,7 @@ if ( !isset($wp_ffpc_config['cache_loggedin']) || $wp_ffpc_config['cache_loggedi
 	}
 
 }
+
 
 /* will store time of page generation */
 $wp_ffpc_gentime = 0;
