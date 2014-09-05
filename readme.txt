@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
 Tested up to: 4.0
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -106,6 +106,12 @@ Version numbering logic:
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
 
+= 1.6.2 =
+*2014-09-05*
+
+* merge pulled from [plescheff](https://github.com/petermolnar/wp-ffpc/pull/25)
+* fixed bug of alway-on log messages ( warning was set to default where notice should have been )
+
 = 1.6.1 =
 *2014-09-04*
 
@@ -122,6 +128,7 @@ What's new:
 What's fixed:
 
 * some warning messages removed in case there's not a single backend installed when the plugin is activated
+* fixed issue of resetting settings when new version of defaults was released
 
 Under the hood:
 
