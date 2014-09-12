@@ -8,7 +8,6 @@ include_once ( 'wp-common/plugin_utils.php');
  * @var string	$plugin_constant	Namespace of the plugin
  * @var mixed	$connection	Backend object storage variable
  * @var boolean	$alive		Alive flag of backend connection
- * @var boolean $network	WordPress Network flag
  * @var array	$options	Configuration settings array
  * @var array	$status		Backends status storage
  * @var array	$cookies	Logged in cookies to search for
@@ -18,14 +17,12 @@ include_once ( 'wp-common/plugin_utils.php');
  */
 class WP_FFPC_Backend {
 
-	const network_key = 'network';
 	const host_separator  = ',';
 	const port_separator  = ':';
 
 	private $plugin_constant = 'wp-ffpc';
 	private $connection = NULL;
 	private $alive = false;
-	private $network = false;
 	private $options = array();
 	private $status = array();
 	public $cookies = array();
@@ -39,7 +36,7 @@ class WP_FFPC_Backend {
 	* @param boolean $network WordPress Network indicator flah
 	*
 	*/
-	public function __construct( $config, $network = false ) {
+	public function __construct( $config ) {
 
 		/* no config, nothing is going to work */
 		if ( empty ( $config ) ) {
@@ -49,9 +46,6 @@ class WP_FFPC_Backend {
 
 		/* set config */
 		$this->options = $config;
-
-		/* set network flag */
-		$this->network = $network;
 
 		/* these are the list of the cookies to look for when looking for logged in user */
 		$this->cookies = array ( 'comment_author_' , 'wordpressuser_' , 'wp-postpass_', 'wordpress_logged_in_' );
@@ -85,6 +79,27 @@ class WP_FFPC_Backend {
 
 	}
 
+
+	public static function parse_urimap($uri, $default_urimap=null) {
+		$uri_parts = parse_url( $uri );
+
+		$uri_map = array(
+			'$scheme' => $uri_parts['scheme'],
+			'$host' => $uri_parts['host'],
+			'$request_uri' => $uri_parts['path']
+		);
+
+		if (is_array($default_urimap)) {
+			$uri_map = array_merge($default_urimap, $uri_map);
+		}
+
+		return $uri_map;
+	}
+
+	public static function map_urimap($urimap, $subject) {
+		return str_replace(array_keys($urimap), $urimap, $subject);
+	}
+
 	/*********************** PUBLIC / PROXY FUNCTIONS ***********************/
 
 	/**
@@ -95,7 +110,7 @@ class WP_FFPC_Backend {
 	 */
 	public function key ( &$prefix ) {
 		/* data is string only with content, meta is not used in nginx */
-		$key = $prefix . str_replace ( array_keys( $this->urimap ), $this->urimap, $this->options['key'] );
+		$key = $prefix . self::map_urimap($this->urimap, $this->options['key']);
 		$this->log ( sprintf( __translate__( 'original key configuration: %s', $this->plugin_constant ),  $this->options['key'] ) );
 		$this->log ( sprintf( __translate__( 'setting key to: %s', $this->plugin_constant ),  $key ) );
 		return $key;
@@ -200,6 +215,17 @@ class WP_FFPC_Backend {
 			$this->taxonomy_links( $to_clear );
 		}
 
+		/* clear pasts index page if settings requires it */
+		if ( $this->options['invalidation_method'] == 3 ) {
+			$posts_page_id = get_option( 'page_for_posts' );
+			$post_type = get_post_type( $post_id );
+
+			if ($post_type === 'post' && $posts_page_id != $post_id) {
+				$this->clear($posts_page_id, $force);
+			}
+		}
+
+
 		/* if there's a post id pushed, it needs to be invalidated in all cases */
 		if ( !empty ( $post_id ) ) {
 
@@ -207,25 +233,40 @@ class WP_FFPC_Backend {
 			if ( !function_exists('get_permalink') )
 				include_once ( ABSPATH . 'wp-includes/link-template.php' );
 
-			/* get path from permalink */
-			$path = substr ( get_permalink( $post_id ) , 7 );
+			/* get permalink */
+			$permalink = get_permalink( $post_id );
 
 			/* no path, don't do anything */
-			if ( empty( $path ) ) {
+			if ( empty( $permalink ) ) {
 				$this->log ( sprintf( __translate__( 'unable to determine path from Post Permalink, post ID: %s', $this->plugin_constant ),  $post_id ), LOG_WARNING );
 				return false;
 			}
 
-			if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) )
-				$protocol = 'https://';
-			else
-				$protocol = 'http://';
+			/*
+			 * It is possible that post/page is paginated with <!--nextpage-->
+			 * Wordpress doesn't seem to expose the number of pages via API.
+			 * So let's just count it.
+			 */
+			$content_post = get_post( $post_id );
+			$content = $content_post->post_content;
+			$number_of_pages = 1 + (int)preg_match_all('/<!--nextpage-->/', $content, $matches);
 
-			/* elements to clear
-			   values are keys, faster to process and eliminates duplicates
-			*/
-			$to_clear[ $protocol . $path ] = true;
+			$current_page_id = '';
+			do {
+				/* urimap */
+				$urimap = self::parse_urimap($permalink, $this->urimap);
+				$urimap['$request_uri'] = $urimap['$request_uri'] . ($current_page_id ? $current_page_id . '/' : '');
+
+				$clear_cache_key = self::map_urimap($urimap, $this->options['key']);
+
+				$to_clear[ $clear_cache_key ] = true;
+
+				$current_page_id = 1+(int)$current_page_id;
+			} while ($number_of_pages>1 && $current_page_id<=$number_of_pages);
 		}
+
+		/* Hook to custom clearing array. */
+		$to_clear = apply_filters('wp_ffpc_to_clear_array', $to_clear, $post_id);
 
 		foreach ( $to_clear as $link => $dummy ) {
 			/* clear all feeds as well */
@@ -414,7 +455,7 @@ class WP_FFPC_Backend {
 	 * @var mixed $message Message to log
 	 * @var int $log_level Log level
 	 */
-	private function log ( $message, $log_level = LOG_WARNING ) {
+	private function log ( $message, $log_level = LOG_NOTICE ) {
 		if ( !isset ( $this->options['log'] ) || $this->options['log'] != 1 )
 			return false;
 		else
@@ -498,7 +539,7 @@ class WP_FFPC_Backend {
 
 		foreach ( $keys as $key => $dummy ) {
 			if ( ! apc_delete ( $key ) ) {
-				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 				//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
 			}
 			else {
@@ -584,7 +625,7 @@ class WP_FFPC_Backend {
 
 		foreach ( $keys as $key => $dummy ) {
 			if ( ! apcu_delete ( $key ) ) {
-				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 				//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
 			}
 			else {
@@ -683,7 +724,7 @@ class WP_FFPC_Backend {
 
 		foreach ( $keys as $key => $dummy ) {
 			if ( ! xcache_unset ( $key ) ) {
-				$this->log ( sprintf( __translate__( 'Failed to delete XCACHE entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+				$this->log ( sprintf( __translate__( 'Failed to delete XCACHE entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 				//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
 			}
 			else {
@@ -702,7 +743,7 @@ class WP_FFPC_Backend {
 	private function memcached_init () {
 		/* Memcached class does not exist, Memcached extension is not available */
 		if (!class_exists('Memcached')) {
-			$this->log (  __translate__(' Memcached extension missing', $this->plugin_constant ), LOG_ERR );
+			$this->log (  __translate__(' Memcached extension missing, wp-ffpc will not be able to function correctly!', $this->plugin_constant ), LOG_WARNING );
 			return false;
 		}
 
@@ -860,7 +901,7 @@ class WP_FFPC_Backend {
 	private function memcache_init () {
 		/* Memcached class does not exist, Memcache extension is not available */
 		if (!class_exists('Memcache')) {
-			$this->log (  __translate__('PHP Memcache extension missing', $this->plugin_constant ), LOG_ERR );
+			$this->log (  __translate__('PHP Memcache extension missing', $this->plugin_constant ), LOG_WARNING );
 			return false;
 		}
 
