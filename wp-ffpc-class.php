@@ -1210,7 +1210,7 @@ class WP_FFPC extends PluginAbstract {
 	 * log wrapper to include options
 	 *
 	 */
-	public function log ( $message, $log_level = LOG_WARNING ) {
+	public function log ( $message, $log_level = LOG_NOTICE ) {
 		if ( !isset ( $this->options['log'] ) || $this->options['log'] != 1 )
 			return false;
 		else

@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
 Tested up to: 4.0
-Stable tag: 1.6.2
+Stable tag: 1.6.3
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -105,6 +105,11 @@ Version numbering logic:
 * every A. indicates BIG changes.
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
+
+= 1.6.3 =
+*2014-09-12*
+
+* there were still some alway-on log messages
 
 = 1.6.2 =
 *2014-09-05*
