@@ -8,7 +8,6 @@ include_once ( 'wp-common/plugin_utils.php');
  * @var string	$plugin_constant	Namespace of the plugin
  * @var mixed	$connection	Backend object storage variable
  * @var boolean	$alive		Alive flag of backend connection
- * @var boolean $network	WordPress Network flag
  * @var array	$options	Configuration settings array
  * @var array	$status		Backends status storage
  * @var array	$cookies	Logged in cookies to search for
@@ -18,14 +17,12 @@ include_once ( 'wp-common/plugin_utils.php');
  */
 class WP_FFPC_Backend {
 
-	const network_key = 'network';
 	const host_separator  = ',';
 	const port_separator  = ':';
 
 	private $plugin_constant = 'wp-ffpc';
 	private $connection = NULL;
 	private $alive = false;
-	private $network = false;
 	private $options = array();
 	private $status = array();
 	public $cookies = array();
@@ -39,7 +36,7 @@ class WP_FFPC_Backend {
 	* @param boolean $network WordPress Network indicator flah
 	*
 	*/
-	public function __construct( $config, $network = false ) {
+	public function __construct( $config ) {
 
 		/* no config, nothing is going to work */
 		if ( empty ( $config ) ) {
@@ -49,9 +46,6 @@ class WP_FFPC_Backend {
 
 		/* set config */
 		$this->options = $config;
-
-		/* set network flag */
-		$this->network = $network;
 
 		/* these are the list of the cookies to look for when looking for logged in user */
 		$this->cookies = array ( 'comment_author_' , 'wordpressuser_' , 'wp-postpass_', 'wordpress_logged_in_' );
@@ -545,7 +539,7 @@ class WP_FFPC_Backend {
 
 		foreach ( $keys as $key => $dummy ) {
 			if ( ! apc_delete ( $key ) ) {
-				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 				//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
 			}
 			else {
@@ -631,7 +625,7 @@ class WP_FFPC_Backend {
 
 		foreach ( $keys as $key => $dummy ) {
 			if ( ! apcu_delete ( $key ) ) {
-				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 				//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
 			}
 			else {
@@ -730,7 +724,7 @@ class WP_FFPC_Backend {
 
 		foreach ( $keys as $key => $dummy ) {
 			if ( ! xcache_unset ( $key ) ) {
-				$this->log ( sprintf( __translate__( 'Failed to delete XCACHE entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+				$this->log ( sprintf( __translate__( 'Failed to delete XCACHE entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 				//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
 			}
 			else {
@@ -749,7 +743,7 @@ class WP_FFPC_Backend {
 	private function memcached_init () {
 		/* Memcached class does not exist, Memcached extension is not available */
 		if (!class_exists('Memcached')) {
-			$this->log (  __translate__(' Memcached extension missing', $this->plugin_constant ), LOG_ERR );
+			$this->log (  __translate__(' Memcached extension missing, wp-ffpc will not be able to function correctly!', $this->plugin_constant ), LOG_WARNING );
 			return false;
 		}
 
@@ -907,7 +901,7 @@ class WP_FFPC_Backend {
 	private function memcache_init () {
 		/* Memcached class does not exist, Memcache extension is not available */
 		if (!class_exists('Memcache')) {
-			$this->log (  __translate__('PHP Memcache extension missing', $this->plugin_constant ), LOG_ERR );
+			$this->log (  __translate__('PHP Memcache extension missing', $this->plugin_constant ), LOG_WARNING );
 			return false;
 		}
 

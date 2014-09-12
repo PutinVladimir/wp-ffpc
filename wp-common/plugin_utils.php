@@ -17,7 +17,7 @@ class PluginUtils {
 	}
 
 	/* easily redefine serializer, if needed */
-	public function _serialize ( $mixed ) {
+	static public function _serialize ( $mixed ) {
 		return json_encode ( $mixed );
 	}
 
@@ -90,7 +90,7 @@ class PluginUtils {
 	 * @return string URL with correct protocol
 	 *
 	 */
-	public function replace_if_ssl ( $url ) {
+	static public function replace_if_ssl ( $url ) {
 		if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' )
 			$_SERVER['HTTPS'] = 'on';
 
@@ -112,7 +112,7 @@ class PluginUtils {
 	 * @param int $log_level [optional] Level of log, falls back to LOG_WARNING if empty
 	 *
 	 */
-	public function log ( $identifier = __FILE__ , $message = __LINE__ , $log_level = LOG_NOTICE ) {
+	static public function log ( $identifier = __FILE__ , $message = __LINE__ , $log_level = LOG_NOTICE ) {
 
 		if ( function_exists( 'trigger_error' ) ) {
 			if ( @is_array( $message ) || @is_object ( $message ) )
@@ -143,7 +143,7 @@ class PluginUtils {
 	 * @param int $log_level [optional] Level of log, info by default
 	 *
 	 */
-	public function syslog ( $identifier = __FILE__ , $message = __LINE__ , $log_level = LOG_INFO ) {
+	static public function syslog ( $identifier = __FILE__ , $message = __LINE__ , $log_level = LOG_INFO ) {
 
 		if ( function_exists( 'syslog' ) && function_exists ( 'openlog' ) ) {
 			if ( @is_array( $message ) || @is_object ( $message ) )
@@ -162,19 +162,25 @@ class PluginUtils {
 		}
 	}
 
-
-	public function alert ( $msg, $level='error', $network=false ) {
+	/**
+	 * display formatted alert message
+	 *
+	 * @param string $msg Error message
+	 * @param string $error "level" of error
+	 * @param boolean $network WordPress network or not, DEPRECATED
+	 *
+	 */
+	static public function alert ( $msg, $level='error', $network=false ) {
 		if ( empty($msg)) return false;
 		$r = '<div class="'. $level .'">'. sprintf ( __('<strong>Error:</strong> %s', 'PluginUtils' ),  $msg ) .'</div>';
-
-		/* if ( $network )
-			add_action( 'network_admin_notices', array( &$this, 'display_errors') );
-		else
-			add_action( 'admin_notices', array( &$this, 'display_errors') );
-		*/
 	}
 
-	public function valid_url ( &$str ) {
+	/**
+	 * regex validate url
+	 *
+	 * @param string $str URL to validate, passed by reference
+	 */
+	static public function valid_url ( &$str ) {
 		return preg_match('/^(http|https):\/\/([A-Z0-9][A-Z0-9_-]*(?:\.[A-Z0-9][A-Z0-9_-]*)+):?(\d+)?\/?/i', $str );
 	}
 

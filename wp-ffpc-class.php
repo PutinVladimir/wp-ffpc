@@ -174,7 +174,7 @@ class WP_FFPC extends PluginAbstract {
 	public function plugin_post_init () {
 
 		/* initiate backend */
-		$this->backend = new WP_FFPC_Backend ( $this->options, $this->network );
+		$this->backend = new WP_FFPC_Backend ( $this->options );
 
 		/* get all available post types */
 		$post_types = get_post_types( );
