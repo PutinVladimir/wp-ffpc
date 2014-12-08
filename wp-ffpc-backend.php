@@ -8,7 +8,6 @@ include_once ( 'wp-common/plugin_utils.php');
  * @var string	$plugin_constant	Namespace of the plugin
  * @var mixed	$connection	Backend object storage variable
  * @var boolean	$alive		Alive flag of backend connection
- * @var boolean $network	WordPress Network flag
  * @var array	$options	Configuration settings array
  * @var array	$status		Backends status storage
  * @var array	$cookies	Logged in cookies to search for
@@ -18,14 +17,12 @@ include_once ( 'wp-common/plugin_utils.php');
  */
 class WP_FFPC_Backend {
 
-	const network_key = 'network';
 	const host_separator  = ',';
 	const port_separator  = ':';
 
 	private $plugin_constant = 'wp-ffpc';
 	private $connection = NULL;
 	private $alive = false;
-	private $network = false;
 	private $options = array();
 	private $status = array();
 	public $cookies = array();
@@ -39,7 +36,7 @@ class WP_FFPC_Backend {
 	* @param boolean $network WordPress Network indicator flah
 	*
 	*/
-	public function __construct( $config, $network = false ) {
+	public function __construct( $config ) {
 
 		/* no config, nothing is going to work */
 		if ( empty ( $config ) ) {
@@ -49,9 +46,6 @@ class WP_FFPC_Backend {
 
 		/* set config */
 		$this->options = $config;
-
-		/* set network flag */
-		$this->network = $network;
 
 		/* these are the list of the cookies to look for when looking for logged in user */
 		$this->cookies = array ( 'comment_author_' , 'wordpressuser_' , 'wp-postpass_', 'wordpress_logged_in_' );
@@ -85,6 +79,27 @@ class WP_FFPC_Backend {
 
 	}
 
+
+	public static function parse_urimap($uri, $default_urimap=null) {
+		$uri_parts = parse_url( $uri );
+
+		$uri_map = array(
+			'$scheme' => $uri_parts['scheme'],
+			'$host' => $uri_parts['host'],
+			'$request_uri' => $uri_parts['path']
+		);
+
+		if (is_array($default_urimap)) {
+			$uri_map = array_merge($default_urimap, $uri_map);
+		}
+
+		return $uri_map;
+	}
+
+	public static function map_urimap($urimap, $subject) {
+		return str_replace(array_keys($urimap), $urimap, $subject);
+	}
+
 	/*********************** PUBLIC / PROXY FUNCTIONS ***********************/
 
 	/**
@@ -95,7 +110,7 @@ class WP_FFPC_Backend {
 	 */
 	public function key ( &$prefix ) {
 		/* data is string only with content, meta is not used in nginx */
-		$key = $prefix . str_replace ( array_keys( $this->urimap ), $this->urimap, $this->options['key'] );
+		$key = $prefix . self::map_urimap($this->urimap, $this->options['key']);
 		$this->log ( sprintf( __translate__( 'original key configuration: %s', $this->plugin_constant ),  $this->options['key'] ) );
 		$this->log ( sprintf( __translate__( 'setting key to: %s', $this->plugin_constant ),  $key ) );
 		return $key;
@@ -145,15 +160,32 @@ class WP_FFPC_Backend {
 		/* log the current action */
 		$this->log ( sprintf( __translate__( 'set %s expiration time: %s', $this->plugin_constant ),  $key, $this->options['expire'] ) );
 
+		/* expiration time based is based on type from now on */
+		/* fallback */
+		$expire = $this->options['expire'];
+
+		if ( is_home() || is_feed() )
+			$expire = $this->options['expire_home'];
+		elseif ( is_tax() || is_category() || is_tag() || is_archive() )
+			$expire = $this->options['expire_taxonomy'];
+
+		if ( empty($expire) )
+			return false;
+
 		/* proxy to internal function */
 		$internal = $this->proxy( 'set' );
-		$result = $this->$internal( $key, $data );
+		$result = $this->$internal( $key, $data, $expire );
 
 		/* check result validity */
 		if ( $result === false )
 			$this->log ( sprintf( __translate__( 'failed to set entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 
 		return $result;
+	}
+
+
+	public function clear_ng ( $new_status, $old_status, $post ) {
+		$this->clear ( $post->ID );
 	}
 
 	/**
@@ -200,6 +232,17 @@ class WP_FFPC_Backend {
 			$this->taxonomy_links( $to_clear );
 		}
 
+		/* clear pasts index page if settings requires it */
+		if ( $this->options['invalidation_method'] == 3 ) {
+			$posts_page_id = get_option( 'page_for_posts' );
+			$post_type = get_post_type( $post_id );
+
+			if ($post_type === 'post' && $posts_page_id != $post_id) {
+				$this->clear($posts_page_id, $force);
+			}
+		}
+
+
 		/* if there's a post id pushed, it needs to be invalidated in all cases */
 		if ( !empty ( $post_id ) ) {
 
@@ -207,25 +250,40 @@ class WP_FFPC_Backend {
 			if ( !function_exists('get_permalink') )
 				include_once ( ABSPATH . 'wp-includes/link-template.php' );
 
-			/* get path from permalink */
-			$path = substr ( get_permalink( $post_id ) , 7 );
+			/* get permalink */
+			$permalink = get_permalink( $post_id );
 
 			/* no path, don't do anything */
-			if ( empty( $path ) ) {
+			if ( empty( $permalink ) && $permalink != false ) {
 				$this->log ( sprintf( __translate__( 'unable to determine path from Post Permalink, post ID: %s', $this->plugin_constant ),  $post_id ), LOG_WARNING );
 				return false;
 			}
 
-			if ( isset($_SERVER['HTTPS']) && ( ( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ) )
-				$protocol = 'https://';
-			else
-				$protocol = 'http://';
+			/*
+			 * It is possible that post/page is paginated with <!--nextpage-->
+			 * Wordpress doesn't seem to expose the number of pages via API.
+			 * So let's just count it.
+			 */
+			$content_post = get_post( $post_id );
+			$content = $content_post->post_content;
+			$number_of_pages = 1 + (int)preg_match_all('/<!--nextpage-->/', $content, $matches);
 
-			/* elements to clear
-			   values are keys, faster to process and eliminates duplicates
-			*/
-			$to_clear[ $protocol . $path ] = true;
+			$current_page_id = '';
+			do {
+				/* urimap */
+				$urimap = self::parse_urimap($permalink, $this->urimap);
+				$urimap['$request_uri'] = $urimap['$request_uri'] . ($current_page_id ? $current_page_id . '/' : '');
+
+				$clear_cache_key = self::map_urimap($urimap, $this->options['key']);
+
+				$to_clear[ $clear_cache_key ] = true;
+
+				$current_page_id = 1+(int)$current_page_id;
+			} while ($number_of_pages>1 && $current_page_id<=$number_of_pages);
 		}
+
+		/* Hook to custom clearing array. */
+		$to_clear = apply_filters('wp_ffpc_to_clear_array', $to_clear, $post_id);
 
 		foreach ( $to_clear as $link => $dummy ) {
 			/* clear all feeds as well */
@@ -414,7 +472,7 @@ class WP_FFPC_Backend {
 	 * @var mixed $message Message to log
 	 * @var int $log_level Log level
 	 */
-	private function log ( $message, $log_level = LOG_WARNING ) {
+	private function log ( $message, $log_level = LOG_NOTICE ) {
 		if ( !isset ( $this->options['log'] ) || $this->options['log'] != 1 )
 			return false;
 		else
@@ -471,8 +529,8 @@ class WP_FFPC_Backend {
 	 *
 	 * @return boolean APC store outcome
 	 */
-	private function apc_set (  &$key, &$data ) {
-		return apc_store( $key , $data , $this->options['expire'] );
+	private function apc_set (  &$key, &$data, &$expire ) {
+		return apc_store( $key , $data , $expire );
 	}
 
 
@@ -498,7 +556,7 @@ class WP_FFPC_Backend {
 
 		foreach ( $keys as $key => $dummy ) {
 			if ( ! apc_delete ( $key ) ) {
-				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 				//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
 			}
 			else {
@@ -557,8 +615,8 @@ class WP_FFPC_Backend {
 	 *
 	 * @return boolean APC store outcome
 	 */
-	private function apcu_set (  &$key, &$data ) {
-		return apcu_store( $key , $data , $this->options['expire'] );
+	private function apcu_set (  &$key, &$data, &$expire ) {
+		return apcu_store( $key , $data , $expire );
 	}
 
 
@@ -584,7 +642,7 @@ class WP_FFPC_Backend {
 
 		foreach ( $keys as $key => $dummy ) {
 			if ( ! apcu_delete ( $key ) ) {
-				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
+				$this->log ( sprintf( __translate__( 'Failed to delete APC entry: %s', $this->plugin_constant ),  $key ), LOG_WARNING );
 				//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
 			}
 			else {
@@ -595,106 +653,6 @@ class WP_FFPC_Backend {
 
 	/*********************** END APC FUNCTIONS ***********************/
 
-	/*********************** XCACHE FUNCTIONS ***********************/
-	/**
-	 * init apc backend: test APC availability and set alive status
-	 */
-	private function xcache_init () {
-		/* verify apc functions exist, apc extension is loaded */
-		if ( ! function_exists( 'xcache_info' ) ) {
-			$this->log (  __translate__('XCACHE extension missing', $this->plugin_constant ) );
-			return false;
-		}
-
-		$xcache_admin = ini_get ( 'xcache.admin.user' );
-		$xcache_pass = ini_get ( 'xcache.admin.pass' );
-
-		if ( empty( $xcache_admin ) || empty( $xcache_pass ) ) {
-			$this->log (  __translate__('XCACHE xcache.admin.user or xcache.admin.pass is not set in php.ini. Please set them, otherwise the use cache part of xcache is not accessible.', $this->plugin_constant ) );
-			return false;
-		}
-
-		/* verify apc is working */
-		$info = xcache_info();
-		if ( !empty( $info )) {
-			$this->log (  __translate__('backend OK', $this->plugin_constant ) );
-			$this->alive = true;
-		}
-	}
-
-	/**
-	 * health checker for Xcache
-	 *
-	 * @return boolean Aliveness status
-	 *
-	 */
-	private function xcache_status () {
-		$this->status = true;
-		return $this->alive;
-	}
-
-	/**
-	 * get function for APC backend
-	 *
-	 * @param string $key Key to get values for
-	 *
-	 * @return mixed Fetched data based on key
-	 *
-	*/
-	private function xcache_get ( &$key ) {
-		if ( xcache_isset ( $key ) )
-			return xcache_get( $key );
-		else
-			return false;
-	}
-
-	/**
-	 * Set function for APC backend
-	 *
-	 * @param string $key Key to set with
-	 * @param mixed $data Data to set
-	 *
-	 * @return boolean APC store outcome
-	 */
-	private function xcache_set (  &$key, &$data ) {
-		return xcache_set( $key , $data , $this->options['expire'] );
-	}
-
-
-	/**
-	 * Flushes APC user entry storage
-	 *
-	 * @return boolean APC flush outcome status
-	 *
-	*/
-	private function xcache_flush ( ) {
-		return xcache_clear_cache(XC_TYPE_VAR);
-	}
-
-	/**
-	 * Removes entry from APC or flushes APC user entry storage
-	 *
-	 * @param mixed $keys Keys to clear, string or array
-	*/
-	private function xcache_clear ( &$keys ) {
-		/* make an array if only one string is present, easier processing */
-		if ( !is_array ( $keys ) )
-			$keys = array ( $keys => true );
-
-		foreach ( $keys as $key => $dummy ) {
-			if ( ! xcache_unset ( $key ) ) {
-				$this->log ( sprintf( __translate__( 'Failed to delete XCACHE entry: %s', $this->plugin_constant ),  $key ), LOG_ERR );
-				//throw new Exception ( __translate__('Deleting APC entry failed with key ', $this->plugin_constant ) . $key );
-			}
-			else {
-				$this->log ( sprintf( __translate__( 'XCACHE entry delete: %s', $this->plugin_constant ),  $key ) );
-			}
-		}
-	}
-
-	/*********************** END XCACHE FUNCTIONS ***********************/
-
-
 	/*********************** MEMCACHED FUNCTIONS ***********************/
 	/**
 	 * init memcached backend
@@ -702,7 +660,7 @@ class WP_FFPC_Backend {
 	private function memcached_init () {
 		/* Memcached class does not exist, Memcached extension is not available */
 		if (!class_exists('Memcached')) {
-			$this->log (  __translate__(' Memcached extension missing', $this->plugin_constant ), LOG_ERR );
+			$this->log (  __translate__(' Memcached extension missing, wp-ffpc will not be able to function correctly!', $this->plugin_constant ), LOG_WARNING );
 			return false;
 		}
 
@@ -714,15 +672,13 @@ class WP_FFPC_Backend {
 
 		/* check is there's no backend connection yet */
 		if ( $this->connection === NULL ) {
-			/* persistent backend needs an identifier */
-			if ( $this->options['persistent'] == '1' )
-				$this->connection = new Memcached( $this->plugin_constant );
-			else
-				$this->connection = new Memcached();
+			$this->connection = new Memcached();
 
 			/* use binary and not compressed format, good for nginx and still fast */
 			$this->connection->setOption( Memcached::OPT_COMPRESSION , false );
-			$this->connection->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
+                        if ($this->options['memcached_binary']){
+                                $this->connection->setOption( Memcached::OPT_BINARY_PROTOCOL , true );                            
+                        }
 
 			if ( version_compare( phpversion( 'memcached' ) , '2.0.0', '>=' ) && ini_get( 'memcached.use_sasl' ) == 1 && isset($this->options['authpass']) && !empty($this->options['authpass']) && isset($this->options['authuser']) && !empty($this->options['authuser']) ) {
 				$this->connection->setSaslAuthData ( $this->options['authuser'], $this->options['authpass']);
@@ -756,7 +712,7 @@ class WP_FFPC_Backend {
 			/* only add servers that does not exists already  in connection pool */
 			if ( !@array_key_exists($server_id , $servers_alive ) ) {
 				$this->connection->addServer( $server['host'], $server['port'] );
-				$this->log ( sprintf( __translate__( '%s added, persistent mode: %s', $this->plugin_constant ),  $server_id, $this->options['persistent'] ) );
+				$this->log ( sprintf( __translate__( '%s added', $this->plugin_constant ),  $server_id ) );
 			}
 		}
 
@@ -772,14 +728,14 @@ class WP_FFPC_Backend {
 	private function memcached_status () {
 		/* server status will be calculated by getting server stats */
 		$this->log (  __translate__("checking server statuses", $this->plugin_constant ));
-		/* get servers statistic from connection */
-		$report =  $this->connection->getStats();
+		/* get server list from connection */
+		$servers =  $this->connection->getServerList();
 
-		foreach ( $report as $server_id => $details ) {
+                foreach ( $servers as $server ) {
+			$server_id = $server['host'] . self::port_separator . $server['port'];
 			/* reset server status to offline */
 			$this->status[$server_id] = 0;
-			/* if server uptime is not empty, it's most probably up & running */
-			if ( !empty($details['uptime']) ) {
+                        if ($this->connection->set($this->plugin_constant, time())) {
 				$this->log ( sprintf( __translate__( '%s server is up & running', $this->plugin_constant ),  $server_id ) );
 				$this->status[$server_id] = 1;
 			}
@@ -804,8 +760,8 @@ class WP_FFPC_Backend {
 	 * @param mixed $data Data to set
 	 *
 	 */
-	private function memcached_set ( &$key, &$data ) {
-		$result = $this->connection->set ( $key, $data , $this->options['expire']  );
+	private function memcached_set ( &$key, &$data, &$expire ) {
+		$result = $this->connection->set ( $key, $data , $expire  );
 
 		/* if storing failed, log the error code */
 		if ( $result === false ) {
@@ -860,7 +816,7 @@ class WP_FFPC_Backend {
 	private function memcache_init () {
 		/* Memcached class does not exist, Memcache extension is not available */
 		if (!class_exists('Memcache')) {
-			$this->log (  __translate__('PHP Memcache extension missing', $this->plugin_constant ), LOG_ERR );
+			$this->log (  __translate__('PHP Memcache extension missing', $this->plugin_constant ), LOG_WARNING );
 			return false;
 		}
 
@@ -882,18 +838,13 @@ class WP_FFPC_Backend {
 
 		/* adding servers */
 		foreach ( $this->options['servers'] as $server_id => $server ) {
-			if ( $this->options['persistent'] == '1' )
-				$conn = 'pconnect';
-			else
-				$conn = 'connect';
-
 				/* in case of unix socket */
 			if ( $server['port'] === 0 )
-				$this->status[$server_id] = $this->connection->$conn ( 'unix:/' . $server['host'] );
+				$this->status[$server_id] = $this->connection->connect ( 'unix:/' . $server['host'] );
 			else
-				$this->status[$server_id] = $this->connection->$conn ( $server['host'] , $server['port'] );
+				$this->status[$server_id] = $this->connection->connect ( $server['host'] , $server['port'] );
 
-			$this->log ( sprintf( __translate__( '%s added, persistent mode: %s', $this->plugin_constant ),  $server_id, $this->options['persistent'] ) );
+			$this->log ( sprintf( __translate__( '%s added', $this->plugin_constant ),  $server_id ) );
 		}
 
 		/* backend is now alive */
@@ -911,7 +862,7 @@ class WP_FFPC_Backend {
 		/* get servers statistic from connection */
 		foreach ( $this->options['servers'] as $server_id => $server ) {
 			if ( $server['port'] === 0 )
-				$this->status[$server_id] = $this->connection->getServerStatus( $server['host'] );
+				$this->status[$server_id] = $this->connection->getServerStatus( $server['host'], 11211 );
 			else
 				$this->status[$server_id] = $this->connection->getServerStatus( $server['host'], $server['port'] );
 			if ( $this->status[$server_id] == 0 )
@@ -938,8 +889,8 @@ class WP_FFPC_Backend {
 	 * @param mixed $data Data to set
 	 *
 	 */
-	private function memcache_set ( &$key, &$data ) {
-		$result = $this->connection->set ( $key, $data , 0 , $this->options['expire'] );
+	private function memcache_set ( &$key, &$data, &$expire ) {
+		$result = $this->connection->set ( $key, $data , 0 , $expire );
 		return $result;
 	}
 
@@ -975,6 +926,153 @@ class WP_FFPC_Backend {
 	}
 
 	/*********************** END MEMCACHE FUNCTIONS ***********************/
+
+	/*********************** REDIS FUNCTIONS ***********************/
+	/**
+	 * init memcache backend
+	 */
+	private function redis_init () {
+		if (!class_exists('Redis')) {
+			$this->log (  __translate__('PHP Redis extension missing', $this->plugin_constant ), LOG_WARNING );
+			return false;
+		}
+
+		/* check for existing server list, otherwise we cannot add backends */
+		if ( empty ( $this->options['servers'] ) && ! $this->alive ) {
+			$this->log (  __translate__("servers list is empty, init failed", $this->plugin_constant ), LOG_WARNING );
+			return false;
+		}
+
+		/* check is there's no backend connection yet */
+		if ( $this->connection === NULL )
+			$this->connection = new Redis();
+
+		/* check if initialization was success or not */
+		if ( $this->connection === NULL ) {
+			$this->log (  __translate__( 'error initializing Redis extension, exiting', $this->plugin_constant ) );
+			return false;
+		}
+
+		//$this->connection->setOption(Redis::OPT_PREFIX, $this->plugin_constant );
+
+		/* adding server *
+		foreach ( $this->options['servers'] as $server_id => $server ) {
+			/* in case of unix socket *
+			if ( $server['port'] === 0 ) {
+				try {
+					$this->status[$server_id] = $this->connection->connect ( $server['host'] );
+				} catch ( RedisException $e ) {
+					$this->log ( sprintf( __translate__( 'adding %s to the Redis pool failed, error: %s', $this->plugin_constant ),  $server['host'], $e ) );
+				}
+			}
+			else {
+				try {
+					$this->status[$server_id] = $this->connection->connect ( $server['host'] , $server['port'] );
+				} catch ( RedisException $e ) {
+					$this->log ( sprintf( __translate__( 'adding %s:%s to the Redis pool failed, error: %s', $this->plugin_constant ),  $server['host'] , $server['port'], $e ) );
+				}
+			}
+
+
+			$this->log ( sprintf( __translate__( 'server #%s added', $this->plugin_constant ),  $server_id ) );
+		}*/
+
+		/* adding server */
+		$key = array_unshift ( array_keys ( $this->options['servers'] ));
+		$server = array_unshift( $this->options['servers'] );
+
+		try {
+			if ( $server['port'] === 0 )
+				$this->status[$key] = $this->connection->connect ( $server['host'] );
+			else
+				$this->status[$key] = $this->connection->connect ( $server['host'], $server['port'] );
+		} catch ( RedisException $e ) {
+			$this->log ( sprintf( __translate__( 'adding %s to the Redis pool failed, error: %s', $this->plugin_constant ),  $server['host'], $e ) );
+		}
+
+		$this->log ( sprintf( __translate__( 'server #%s added', $this->plugin_constant ),  $server_id ) );
+
+		if ( !empty( $this->options['authpass'])) {
+			$auth = $this->connection->auth( $this->options['authpass'] );
+			if ( $auth == false ) {
+				$this->log (  __translate__( 'Redis authentication failed, exiting', $this->plugin_constant ), LOG_WARNING );
+				return false;
+			}
+		}
+
+		/* backend is now alive */
+		$this->alive = true;
+		$this->redis_status();
+	}
+
+	/**
+	 * check current backend alive status for Memcached
+	 *
+	 */
+	private function redis_status () {
+		/* server status will be calculated by getting server stats */
+		$this->log (  __translate__("checking server statuses", $this->plugin_constant ));
+
+		/* get servers statistic from connection */
+		try {
+			$this->connection->ping();
+		} catch ( RedisException $e ) {
+			$this->log ( sprintf( __translate__( 'Redis status check failed, error: %s', $this->plugin_constant ),  $e ) );
+		}
+
+		$this->log ( sprintf( __translate__( 'Redis is up', $this->plugin_constant ),  $server_id ) );
+	}
+
+	/**
+	 * get function for Memcached backend
+	 *
+	 * @param string $key Key to get values for
+	 *
+	*/
+	private function redis_get ( &$key ) {
+		return $this->connection->get($key);
+	}
+
+	/**
+	 * Set function for Memcached backend
+	 *
+	 * @param string $key Key to set with
+	 * @param mixed $data Data to set
+	 *
+	 */
+	private function redis_set ( &$key, &$data, &$expire ) {
+		$result = $this->connection->set ( $key, $data , Array('nx', 'ex' => $expire) );
+		return $result;
+	}
+
+	/**
+	 *
+	 * Flush memcached entries
+	 */
+	private function redis_flush ( ) {
+		return $this->connection->flushDB();
+	}
+
+
+	/**
+	 * Removes entry from Memcached or flushes Memcached storage
+	 *
+	 * @param mixed $keys String / array of string of keys to delete entries with
+	*/
+	private function redis_clear ( &$keys ) {
+		/* make an array if only one string is present, easier processing */
+		if ( !is_array ( $keys ) )
+			$keys = array ( $keys => true );
+
+		$kresults = $this->connection->delete( $keys );
+
+		foreach ( $kresults as $key => $value ) {
+			$this->log ( sprintf( __translate__( 'entry deleted: %s', $this->plugin_constant ),  $value ) );
+		}
+	}
+
+	/*********************** END REDIS FUNCTIONS ***********************/
+
 
 }
 
