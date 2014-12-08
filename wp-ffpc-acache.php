@@ -3,6 +3,10 @@
  * advanced cache worker of WordPress plugin WP-FFPC
  */
 
+/* ignore localhost */
+if ( $_SERVER['SERVER_ADDR'] == $_SERVER['REMOTE_ADDR'] || $_SERVER['REMOTE_ADDR'] == '127.0.0.1' )
+	return false;
+
 /* check for WP cache enabled*/
 if ( !WP_CACHE )
 	return false;
@@ -30,10 +34,6 @@ $wp_ffpc_uri = $_SERVER['REQUEST_URI'];
 if ( isset($wp_ffpc_config['nocache_dyn']) && !empty($wp_ffpc_config['nocache_dyn']) && stripos($wp_ffpc_uri, '?') !== false )
 	return false;
 
-/* no cache for pages starting with /wp- like WP admin */
-if (stripos($wp_ffpc_uri, '/wp-') !== false)
-	return false;
-
 /* no cache for robots.txt */
 if ( stripos($wp_ffpc_uri, 'robots.txt') )
 	return false;
@@ -52,6 +52,7 @@ elseif ( !empty ( $wp_ffpc_config[ $_SERVER['HTTP_HOST'] ] ) )
 else
 	return false;
 
+/* check for cookies that will make us not cache the content, like logged in WordPress cookie */
 if ( isset($wp_ffpc_config['nocache_cookies']) && !empty($wp_ffpc_config['nocache_cookies']) ) {
 	$nocache_cookies = array_map('trim',explode(",", $wp_ffpc_config['nocache_cookies'] ) );
 
@@ -176,7 +177,7 @@ if ( !empty($wp_ffpc_values['meta']['lastmodified']) )
 	header( 'Last-Modified: ' . gmdate("D, d M Y H:i:s", $wp_ffpc_values['meta']['lastmodified'] ). " GMT" );
 
 /* pingback urls, if existx */
-if ( !empty( $wp_ffpc_values['meta']['pingback'] ) )
+if ( !empty( $wp_ffpc_values['meta']['pingback'] ) && $wp_ffpc_config['pingback_header'] )
 	header( 'X-Pingback: ' . $wp_ffpc_values['meta']['pingback'] );
 
 /* for debugging */
@@ -185,6 +186,7 @@ if ( $wp_ffpc_config['response_header'] )
 
 /* HTML data */
 echo $wp_ffpc_values['data'];
+
 flush();
 die();
 
@@ -321,6 +323,9 @@ function wp_ffpc_callback( $buffer ) {
 	$wp_ffpc_backend->set ( $prefix_meta, $meta );
 
 	$prefix_data = $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_data'] );
+
+	//if ( $wp_ffpc_config['gzip'] && function_exists('gzencode') )
+
 	$wp_ffpc_backend->set ( $prefix_data , $buffer );
 
 	if ( !empty( $meta['status'] ) && $meta['status'] == 404 ) {
