@@ -162,15 +162,12 @@ class WP_FFPC_Backend {
 
 		/* expiration time based is based on type from now on */
 		/* fallback */
-		$expire = $this->options['expire'];
+		$expire = empty ( $this->options['expire'] ) ? 0 : $this->options['expire'];
 
-		if ( is_home() || is_feed() )
-			$expire = $this->options['expire_home'];
-		elseif ( is_tax() || is_category() || is_tag() || is_archive() )
-			$expire = $this->options['expire_taxonomy'];
-
-		if ( empty($expire) )
-			return false;
+		if (( is_home() || is_feed() ) && isset($this->options['expire_home']))
+			$expire = (int) $this->options['expire_home'];
+		elseif (( is_tax() || is_category() || is_tag() || is_archive() ) && isset($this->options['expire_taxonomy']))
+			$expire = (int) $this->options['expire_taxonomy'];
 
 		/* proxy to internal function */
 		$internal = $this->proxy( 'set' );
@@ -677,7 +674,7 @@ class WP_FFPC_Backend {
 			/* use binary and not compressed format, good for nginx and still fast */
 			$this->connection->setOption( Memcached::OPT_COMPRESSION , false );
                         if ($this->options['memcached_binary']){
-                                $this->connection->setOption( Memcached::OPT_BINARY_PROTOCOL , true );                            
+                                $this->connection->setOption( Memcached::OPT_BINARY_PROTOCOL , true );
                         }
 
 			if ( version_compare( phpversion( 'memcached' ) , '2.0.0', '>=' ) && ini_get( 'memcached.use_sasl' ) == 1 && isset($this->options['authpass']) && !empty($this->options['authpass']) && isset($this->options['authuser']) && !empty($this->options['authuser']) ) {

@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
 Tested up to: 4.0
-Stable tag: 1.7.2
+Stable tag: 1.7.3
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -54,7 +54,8 @@ Many thanks for donations, contributors, supporters, testers & bug reporters:
 * mailgarant.nl
 * Christian Rößner
 * [Ameir Abdeldayem](https://github.com/ameir)
-* Gonzalez Crespo
+* [Alvaro Gonzalez](https://github.com/andor-pierdelacabeza)
+* Meint Post
 
 == Installation ==
 
@@ -115,6 +116,13 @@ Version numbering logic:
 * every A. indicates BIG changes.
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
+
+= 1.7.3 =
+*2014-12-17*
+
+What's fixed:
+
+* expiration time set to '0' resulted instant expiration instead of infinite keep; fixed now
 
 = 1.7.2 =
 *2014-12-08*
