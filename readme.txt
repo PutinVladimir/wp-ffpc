@@ -3,8 +3,8 @@ Contributors: cadeyrn, ameir, haroldkyle, plescheff, dkcwd, IgorCode
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
-Tested up to: 4.0
-Stable tag: 1.7.3
+Tested up to: 4.1
+Stable tag: 1.7.4
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -116,6 +116,14 @@ Version numbering logic:
 * every A. indicates BIG changes.
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
+
+= 1.7.4 =
+*2014-12-17*
+
+What's changed:
+
+* localhost cache forced exclude removed; instead please use `define('WP_CACHE', $_SERVER['REMOTE_ADDR'] !== '127.0.0.1');` instead as pointed out by [plescheff](https://github.com/petermolnar/wp-ffpc/commit/eb4942005273822aec8c2da09f0e763807f94f9c#commitcomment-9006031) if required
+* compatibility tested up to WordPress 4.1
 
 = 1.7.3 =
 *2014-12-17*

@@ -3,10 +3,6 @@
  * advanced cache worker of WordPress plugin WP-FFPC
  */
 
-/* ignore localhost */
-if ( $_SERVER['SERVER_ADDR'] == $_SERVER['REMOTE_ADDR'] || $_SERVER['REMOTE_ADDR'] == '127.0.0.1' )
-	return false;
-
 /* check for WP cache enabled*/
 if ( !WP_CACHE )
 	return false;
