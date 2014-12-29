@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
 Tested up to: 4.1
-Stable tag: 1.7.4
+Stable tag: 1.7.5
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -13,6 +13,9 @@ The fastest way to cache: use the memory!
 == Description ==
 WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress"). It works with any webserver, including apache2, lighttpd, nginx.
 It can be configured to join forces with [NGiNX](http://NGiNX.org "NGiNX")'s built-in [memcached plugin](http://nginx.org/en/docs/http/ngx_http_memcached_module.html "memcached plugin") for unbeatable speed.
+
+= IMPORTANT =
+** This plugin does kick in right after activation. You have to adjust the setting in Settings -> WP-FFPC.**
 
 = Features: =
 * Wordpress Network support
@@ -46,7 +49,7 @@ Many thanks for donations, contributors, supporters, testers & bug reporters:
 * Jason Miller
 * [Dave Clark](https://github.com/dkcwd)
 * Miguel Clara
-* [plescheff](https://github.com/plescheff)
+* [Anton Pelešev](https://github.com/plescheff)
 * Firas Dib
 * [CotswoldPhoto](http://wordpress.org/support/profile/cotswoldphoto)
 * [tamagokun](https://github.com/tamagokun)
@@ -81,6 +84,7 @@ From version 1.0, the plugin supports subdomain based WordPress Network with pos
 = What are the plugin's requirements? =
 
 * WordPress >= 3.0
+* PHP >= 5.3 ( from version 1.7.5 )
 
 and **at least one** of the following for storage backend:
 
@@ -116,6 +120,16 @@ Version numbering logic:
 * every A. indicates BIG changes.
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
+
+= 1.7.5 =
+*2014-12-29*
+
+What's fixed:
+
+* wp-ffpc was not actually alerting when it had issues; this should be fixed now
+
+This was a really bad bug and it could have cause a lot of issues since the plugin was probably not working in some cases when the alerts went unnoticed. Due to WordPress restrictions on admin_notices hook I had to use PHP features only present since 5.3. Please keep this in mind.
+
 
 = 1.7.4 =
 *2014-12-17*

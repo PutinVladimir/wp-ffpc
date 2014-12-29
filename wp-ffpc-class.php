@@ -252,7 +252,7 @@ class WP_FFPC extends PluginAbstract {
 		}
 
 		foreach ( $this->errors as $e => $msg ) {
-			$this->utils->alert ( $msg, 'error', $this->network );
+			$this->utils->alert ( $msg, LOG_WARNING, $this->network );
 		}
 	}
 
@@ -694,7 +694,7 @@ class WP_FFPC extends PluginAbstract {
 					<input type="checkbox" name="memcached_binary" id="memcached_binary" value="1" <?php checked($this->options['memcached_binary'],true); ?> />
 					<span class="description"><?php _e('Some memcached proxies and implementations only support the ASCII protocol.', $this->plugin_constant); ?></span>
 				</dd>
-                                
+
 				<?php
 				if ( strstr ( $this->options['cache_type'], 'memcached') && extension_loaded ( 'memcached' ) && version_compare( phpversion( 'memcached' ) , '2.0.0', '>=' ) || ( $this->options['cache_type'] == 'redis' ) ) { ?>
 				<?php
@@ -860,9 +860,9 @@ class WP_FFPC extends PluginAbstract {
 			wp_clear_scheduled_hook ( self::precache_id );
 		}
 
-		/* flush the cache when news options are saved, not needed on activation */
+		/* flush the cache when new options are saved, not needed on activation */
 		if ( !$activating )
-			$this->backend->clear();
+			$this->backend->clear(null, true);
 
 		/* create the to-be-included configuration for advanced-cache.php */
 		$this->update_global_config();

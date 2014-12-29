@@ -170,9 +170,22 @@ class PluginUtils {
 	 * @param boolean $network WordPress network or not, DEPRECATED
 	 *
 	 */
-	static public function alert ( $msg, $level='error', $network=false ) {
+	static public function alert ( $msg, $level=LOG_WARNING, $network=false ) {
 		if ( empty($msg)) return false;
-		$r = '<div class="'. $level .'">'. sprintf ( __('<strong>Error:</strong> %s', 'PluginUtils' ),  $msg ) .'</div>';
+
+		switch ($level) {
+			case LOG_ERR:
+			case LOG_WARNING:
+				$css = "error";
+				break;
+			default:
+				$css = "updated";
+				break;
+		}
+
+		$r = '<div class="'. $css .'"><p>'. sprintf ( __('%s', 'PluginUtils' ),  $msg ) .'</p></div>';
+		add_action('admin_notices', function() use ($r) { echo $r; }, 10 );
+		self::log( '', $msg, $level );
 	}
 
 	/**
