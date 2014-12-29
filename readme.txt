@@ -1,10 +1,10 @@
 === WP-FFPC ===
-Contributors: cadeyrn
+Contributors: cadeyrn, ameir, haroldkyle, plescheff, dkcwd, IgorCode
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
-Tested up to: 4.0
-Stable tag: 1.6.0
+Tested up to: 4.1
+Stable tag: 1.7.5
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -13,6 +13,9 @@ The fastest way to cache: use the memory!
 == Description ==
 WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress"). It works with any webserver, including apache2, lighttpd, nginx.
 It can be configured to join forces with [NGiNX](http://NGiNX.org "NGiNX")'s built-in [memcached plugin](http://nginx.org/en/docs/http/ngx_http_memcached_module.html "memcached plugin") for unbeatable speed.
+
+= IMPORTANT =
+** This plugin does kick in right after activation. You have to adjust the setting in Settings -> WP-FFPC.**
 
 = Features: =
 * Wordpress Network support
@@ -34,17 +37,28 @@ It can be configured to join forces with [NGiNX](http://NGiNX.org "NGiNX")'s bui
 * talkative log for [WP_DEBUG](http://codex.wordpress.org/WP_DEBUG "WP_DEBUG")
 * multiple memcached upstream support
 * precache ( manually or by timed by wp-cron )
+* varying expiration time for posts, taxonomies and home
+
 
 Many thanks for donations, contributors, supporters, testers & bug reporters:
 
-* [Harold Kyle](https://github.com/haroldkyle "Harold Kyle")
-* [Eric Gilette](http://www.ericgillette.com/ "Eric Gilette")
-* [doconeill](http://wordpress.org/support/profile/doconeill "doconeill")
-* [Mark Costlow](mailto:cheeks@swcp.com "Mark Costlow")
-* [Jason Miller](mailto:jason@redconfetti.com "Jason Miller")
-* [Dave Clark](https://github.com/dkcwd "Dave Clark")
+* [Harold Kyle](https://github.com/haroldkyle)
+* [Eric Gilette](http://www.ericgillette.com/)
+* [doconeill](http://wordpress.org/support/profile/doconeill)
+* Mark Costlow
+* Jason Miller
+* [Dave Clark](https://github.com/dkcwd)
 * Miguel Clara
-* [plescheff](https://github.com/plescheff)
+* [Anton Pelešev](https://github.com/plescheff)
+* Firas Dib
+* [CotswoldPhoto](http://wordpress.org/support/profile/cotswoldphoto)
+* [tamagokun](https://github.com/tamagokun)
+* Many Ayromlou
+* mailgarant.nl
+* Christian Rößner
+* [Ameir Abdeldayem](https://github.com/ameir)
+* [Alvaro Gonzalez](https://github.com/andor-pierdelacabeza)
+* Meint Post
 
 == Installation ==
 
@@ -70,6 +84,7 @@ From version 1.0, the plugin supports subdomain based WordPress Network with pos
 = What are the plugin's requirements? =
 
 * WordPress >= 3.0
+* PHP >= 5.3 ( from version 1.7.5 )
 
 and **at least one** of the following for storage backend:
 
@@ -106,6 +121,97 @@ Version numbering logic:
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
 
+= 1.7.5 =
+*2014-12-29*
+
+What's fixed:
+
+* wp-ffpc was not actually alerting when it had issues; this should be fixed now
+
+This was a really bad bug and it could have cause a lot of issues since the plugin was probably not working in some cases when the alerts went unnoticed. Due to WordPress restrictions on admin_notices hook I had to use PHP features only present since 5.3. Please keep this in mind.
+
+
+= 1.7.4 =
+*2014-12-17*
+
+What's changed:
+
+* localhost cache forced exclude removed; instead please use `define('WP_CACHE', $_SERVER['REMOTE_ADDR'] !== '127.0.0.1');` instead as pointed out by [plescheff](https://github.com/petermolnar/wp-ffpc/commit/eb4942005273822aec8c2da09f0e763807f94f9c#commitcomment-9006031) if required
+* compatibility tested up to WordPress 4.1
+
+= 1.7.3 =
+*2014-12-17*
+
+What's fixed:
+
+* expiration time set to '0' resulted instant expiration instead of infinite keep; fixed now
+
+= 1.7.2 =
+*2014-12-08*
+
+What's changed:
+
+* merged pull request for memcached proxy compatibility; memcached binary mode if off by default from now on
+
+= 1.7.1 =
+*2014-12-04*
+
+What's fixed:
+
+* [Unable to determine path from Post Permalink](https://wordpress.org/support/topic/unable-to-determine-path-from-post-permalink) noise fixed
+* potential Multisite precache bug fixed ( database prefixes were not set according to original prefix )
+
+What's new:
+
+* added permanent cache exception of localhost
+
+What's changed:
+
+* pingback header preservation is now off by default and can manually be turned on
+
+= 1.7.0 =
+*2014-09-19*
+
+What's new:
+
+* added varying expiration time options
+
+What's changed:
+
+* **dropped Xcache support**: the reasons behind this is the outstandingly terrible documentation of Xcache
+* **dropped persistent memcache mode**: no one was using it and even if the were only caused trouble
+* **removed '/wp-' hardcoded cache exception**; this is now the default in the regex exceptions field as ^/wp-; please add this manually in case you've already been using the regex field
+
+= 1.6.4 =
+*2014-09-12*
+
+What's fixed:
+
+* downgraded log level from halting-level fatal to warning ( thank you PHP for the consistent naming... ) in case the selected extension is missing
+* leftover code parts cleanup
+
+= 1.6.3 =
+*2014-09-12*
+
+What's fixed:
+
+* there were still some alway-on log messages
+
+= 1.6.2 =
+*2014-09-05*
+
+What's fixed:
+
+* merge pulled from [plescheff](https://github.com/petermolnar/wp-ffpc/pull/25)
+* fixed bug of alway-on log messages ( warning was set to default where notice should have been )
+
+= 1.6.1 =
+*2014-09-04*
+
+What's fixed:
+
+1.6 release, correcting SVN madness with non-recursive copies.
+
 = 1.6.0 =
 *2014-05-30*
 
@@ -117,6 +223,7 @@ What's new:
 What's fixed:
 
 * some warning messages removed in case there's not a single backend installed when the plugin is activated
+* fixed issue of resetting settings when new version of defaults was released
 
 Under the hood:
 
