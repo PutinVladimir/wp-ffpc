@@ -151,7 +151,7 @@ class WP_FFPC_Backend {
 	 *
 	 * @return mixed $result status of set function
 	 */
-	public function set ( &$key, &$data ) {
+	public function set ( &$key, &$data, $expire = false ) {
 
 		/* look for backend aliveness, exit on inactive backend */
 		if ( ! $this->is_alive() )
@@ -162,7 +162,8 @@ class WP_FFPC_Backend {
 
 		/* expiration time based is based on type from now on */
 		/* fallback */
-		$expire = empty ( $this->options['expire'] ) ? 0 : $this->options['expire'];
+		if ( $expire === false )
+			$expire = empty ( $this->options['expire'] ) ? 0 : $this->options['expire'];
 
 		if (( is_home() || is_feed() ) && isset($this->options['expire_home']))
 			$expire = (int) $this->options['expire_home'];

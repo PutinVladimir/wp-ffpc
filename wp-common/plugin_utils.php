@@ -184,7 +184,9 @@ class PluginUtils {
 		}
 
 		$r = '<div class="'. $css .'"><p>'. sprintf ( __('%s', 'PluginUtils' ),  $msg ) .'</p></div>';
-		add_action('admin_notices', function() use ($r) { echo $r; }, 10 );
+		if ( version_compare(phpversion(), '5.3.0', '>=')) {
+			add_action('admin_notices', function() use ($r) { echo $r; }, 10 );
+		}
 		self::log( '', $msg, $level );
 	}
 

@@ -4,20 +4,37 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
 Tested up to: 4.1
-Stable tag: 1.7.5
+Stable tag: 1.7.6
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
 The fastest way to cache: use the memory!
 
 == Description ==
+
 WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress"). It works with any webserver, including apache2, lighttpd, nginx.
 It can be configured to join forces with [NGiNX](http://NGiNX.org "NGiNX")'s built-in [memcached plugin](http://nginx.org/en/docs/http/ngx_http_memcached_module.html "memcached plugin") for unbeatable speed.
 
-= IMPORTANT =
-** This plugin does kick in right after activation. You have to adjust the setting in Settings -> WP-FFPC.**
+= IMPORTANT NOTES, PLEASE READ THIS LIST =
+
+* Requirements:
+  * WordPress >= 3.0
+  * **at least one** of the following for storage backend:
+    * memcached with [PHP Memcached](http://php.net/manual/en/book.memcached.php "Memcached") > 0.1.0
+    * memcached with [PHP Memcache](http://php.net/manual/en/book.memcache.php "Memcache") > 2.1.0
+    * [APC](http://php.net/manual/en/book.apc.php "APC")
+    * [APCu](http://pecl.php.net/package/APCu "APC User Cache")
+  * PHP 5.3+ is really highly recommended, see "Known issues"
+* This plugin does kick in right after activation. You have to adjust the setting in Settings -> WP-FFPC.*
+ 
+
+= Known issues =
+
+* errors will not be displayed on the admin section if PHP < 5.3, only in the logs. This is due to the limitations of displaying the errors ( admin_notices is a hook, not a filter ) and due to the lack of proper anonymus functions in older PHP. PHP 5.3 is 5 years old, so it's time to upgrade.
+* APC with PHP 5.4 is buggy; the plugin with that setup can even make your site slower. Please use APCu or memcached if you're using PHP >= 5.4
 
 = Features: =
+
 * Wordpress Network support
   * fully supported domain/subdomain based WordPress Networks on per site setup as well
   * will work in Network Enabled mode only for subdirectory based Multisites ( per site settings will not work in this case )
@@ -81,19 +98,6 @@ You have to remove the default yum package, named `php-pecl-memcache` and instal
 = How to use the plugin in a WordPress Network =
 From version 1.0, the plugin supports subdomain based WordPress Network with possible different per site cache settings. If the plugin is network active, obviously the network wide settings will be used for all of the sites. If it's activated only on some of the sites, the other will not be affected and even the cache storage backend can be different from site to site.
 
-= What are the plugin's requirements? =
-
-* WordPress >= 3.0
-* PHP >= 5.3 ( from version 1.7.5 )
-
-and **at least one** of the following for storage backend:
-
-* memcached with [PHP Memcached](http://php.net/manual/en/book.memcached.php "Memcached") > 0.1.0
-* memcached with [PHP Memcache](http://php.net/manual/en/book.memcache.php "Memcache") > 2.1.0
-* [APC](http://php.net/manual/en/book.apc.php "APC")
-* [APCu](http://pecl.php.net/package/APCu "APC User Cache")
-* [Xcache](http://xcache.lighttpd.net/ "Xcache")
-
 = How logging works in the plugin? =
 Log levels by default ( if logging enabled ) includes warning and error level standard PHP messages.
 Additional info level log is available when [WP_DEBUG](http://codex.wordpress.org/WP_DEBUG "WP_DEBUG") is enabled.
@@ -120,6 +124,13 @@ Version numbering logic:
 * every A. indicates BIG changes.
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
+
+= 1.7.6 = 
+*2015-01-09*
+
+What's fixed:
+
+* anonymus function call only for PHP 5.3
 
 = 1.7.5 =
 *2014-12-29*

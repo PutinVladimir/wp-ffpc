@@ -222,7 +222,7 @@ class WP_FFPC extends PluginAbstract {
 		$settings_link = ' &raquo; <a href="' . $this->settings_link . '">' . __( 'WP-FFPC Settings', $this->plugin_constant ) . '</a>';
 		/* check for errors */
 		if ( ! WP_CACHE )
-			$this->errors['no_wp_cache'] = __("WP_CACHE is disabled, plugin will not work that way. Please add define `( 'WP_CACHE', true );` in wp-config.php", $this->plugin_constant ) . $settings_link;
+			$this->errors['no_wp_cache'] = __("WP_CACHE is disabled, plugin will not work that way. Please add `define ( 'WP_CACHE', true );` to wp-config.php", $this->plugin_constant ) . $settings_link;
 
 		if ( ! $this->global_saved )
 			$this->errors['no_global_saved'] = __("Plugin settings are not yet saved for the site, please save settings!", $this->plugin_constant) . $settings_link;
