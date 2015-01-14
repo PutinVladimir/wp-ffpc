@@ -251,8 +251,11 @@ class WP_FFPC extends PluginAbstract {
 			}
 		}
 
-		foreach ( $this->errors as $e => $msg ) {
-			$this->utils->alert ( $msg, LOG_WARNING, $this->network );
+		$filtered_errors = apply_filters('wp_ffpc_post_init_errors_array', $this->errors);
+		if ($filtered_errors) {
+			foreach ( $this->errors as $e => $msg ) {
+				$this->utils->alert ( $msg, LOG_WARNING, $this->network );
+			}
 		}
 	}
 

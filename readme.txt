@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
 Tested up to: 4.1
-Stable tag: 1.7.6
+Stable tag: 1.7.7
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -26,7 +26,7 @@ It can be configured to join forces with [NGiNX](http://NGiNX.org "NGiNX")'s bui
     * [APCu](http://pecl.php.net/package/APCu "APC User Cache")
   * PHP 5.3+ is really highly recommended, see "Known issues"
 * This plugin does kick in right after activation. You have to adjust the setting in Settings -> WP-FFPC.*
- 
+
 
 = Known issues =
 
@@ -125,7 +125,15 @@ Version numbering logic:
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
 
-= 1.7.6 = 
+= 1.7.7 =
+*2015-01-14*
+
+What's fixed:
+
+* fixed alert backwards compatibility for PHP < 5.3
+
+
+= 1.7.6 =
 *2015-01-09*
 
 What's fixed:

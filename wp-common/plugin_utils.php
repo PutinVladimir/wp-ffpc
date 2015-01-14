@@ -187,6 +187,12 @@ class PluginUtils {
 		if ( version_compare(phpversion(), '5.3.0', '>=')) {
 			add_action('admin_notices', function() use ($r) { echo $r; }, 10 );
 		}
+		else {
+			global $tmp;
+			$tmp = $r;
+			$f = create_function ( '', 'global $tmp; echo $tmp;' );
+			add_action('admin_notices', $f );
+		}
 		self::log( '', $msg, $level );
 	}
 
