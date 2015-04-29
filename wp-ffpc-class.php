@@ -70,11 +70,8 @@ class WP_FFPC extends WP_FFPC_ABSTRACT {
 		$this->plugin_url = plugin_dir_url( __FILE__ );
 		$this->plugin_dir = plugin_dir_path( __FILE__ );
 
-		$this->common_url = $this->plugin_url . self::common_slug;
-		$this->common_dir = $this->plugin_dir . self::common_slug;
-
 		$this->admin_css_handle = $this->plugin_constant . '-admin-css';
-		$this->admin_css_url = $this->common_url . 'wp-admin.css';
+		$this->admin_css_url = $this->plugin_url . 'wp-admin.css';
 	}
 
 	/**
@@ -574,13 +571,23 @@ class WP_FFPC extends WP_FFPC_ABSTRACT {
 					?></dl>
 				</dd>
 
+				<dt>
+					<label for="hashkey"><?php _e('SHA1 hash key', $this->plugin_constant); ?></label>
+				</dt>
+				<dd>
+					<input type="checkbox" name="hashkey" id="hashkey" value="1" <?php checked($this->options['hashkey'],true); ?> />
+					<span class="description"><?php _e('Occasionally URL can be too long to be used as key for the backend storage, especially with memcached. Turn on this feature to use SHA1 hash of the URL as key instead. Please be aware that you have to add ( or uncomment ) a line in nginx if you want nginx to fetch the data directly; for details, please see the nginx example tab.', $this->plugin_constant); ?>
+				</dd>
+
+
+
 			</dl>
 			</fieldset>
 
 			<fieldset id="<?php echo $this->plugin_constant ?>-debug">
 			<legend><?php _e( 'Debug & in-depth settings', $this->plugin_constant ); ?></legend>
 			<h3><?php _e('Notes', $this->plugin_constant);?></h3>
-			<p><?php _e('The former method of debug logging flag has been removed. In case you need debug log from WP-FFPC please set the <a href="http://codex.wordpress.org/WP_DEBUG">WP_DEBUG</a> constant `true`.<br /> This will enable NOTICE level messages apart from the WARNING level ones which are always displayed.', $this->plugin_constant); ?></p>
+			<p><?php _e('The former method of debug logging flag has been removed. In case you need debug log from WP-FFPC please set both the <a href="http://codex.wordpress.org/WP_DEBUG">WP_DEBUG</a> and the WP_FFPC__DEBUG_MODE constants `true` in wp-config.php.<br /> This will enable NOTICE level messages apart from the WARNING level ones which are always displayed.', $this->plugin_constant); ?></p>
 
 			<dl>
 				<dt>

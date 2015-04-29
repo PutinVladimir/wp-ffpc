@@ -563,7 +563,7 @@ abstract class WP_FFPC_ABSTRACT {
 				wp_die( '<h1>Error:</h1>' . '<p>' . $message . '</p>' );
 				exit;
 			default:
-				if ( !defined( 'WP_DEBUG' ) && WP_DEBUG != true  )
+				if ( !defined( 'WP_DEBUG' ) || WP_DEBUG != true || !defined( 'WP_FFPC__DEBUG_MODE' ) || WP_FFPC__DEBUG_MODE != true )
 					return;
 				break;
 		}

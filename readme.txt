@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_i
 Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
 Requires at least: 3.0
 Tested up to: 4.2.1
-Stable tag: 1.8.1
+Stable tag: 1.8.2
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -124,6 +124,13 @@ Version numbering logic:
 * every A. indicates BIG changes.
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
+
+= 1.8.2 =
+*2015-04-30*
+
+* sha1 key hashing made to be optional
+* added additional debug condition of WP_FFPC__DEBUG_MODE constant to be `true`
+
 
 = 1.8.1 =
 *2015-04-29*

@@ -140,7 +140,10 @@ class WP_FFPC_Backend {
 
 		$key_base = self::map_urimap($urimap, $this->options['key']);
 		/* data is string only with content, meta is not used in nginx */
-		$key = sha1 ($prefix . $key_base );
+		$key = $prefix . $key_base;
+		if ( isset($this->options['hashkey']) && $this->options['hashkey'] == true)
+			$key = sha1 ($prefix . $key_base );
+
 		$this->log ( sprintf( __translate__( 'original key configuration: %s', $this->plugin_constant ),  $this->options['key'] ) );
 		$this->log ( sprintf( __translate__( 'setting key for: %s', $this->plugin_constant ),  $key_base ) );
 		$this->log ( sprintf( __translate__( 'setting key to: %s', $this->plugin_constant ),  $key ) );
@@ -502,7 +505,7 @@ class WP_FFPC_Backend {
 				wp_die( '<h1>Error:</h1>' . '<p>' . $message . '</p>' );
 				exit;
 			default:
-				if ( !defined( 'WP_DEBUG' ) && WP_DEBUG != true  )
+				if ( !defined( 'WP_DEBUG' ) || WP_DEBUG != true || !defined( 'WP_FFPC__DEBUG_MODE' ) || WP_FFPC__DEBUG_MODE != true )
 					return;
 				break;
 		}
