@@ -1,8 +1,19 @@
 <?php
 
+/* __ only availabe if we're running from the inside of wordpress, not in advanced-cache.php phase */
+if ( !function_exists ('__translate__') ) {
+	/* __ only availabe if we're running from the inside of wordpress, not in advanced-cache.php phase */
+	if ( function_exists ( '__' ) ) {
+		function __translate__ ( $text, $domain ) { return __($text, $domain); }
+	}
+	else {
+		function __translate__ ( $text, $domain ) { return $text; }
+	}
+}
+
 if (!class_exists('WP_FFPC_Backend')) :
 
-include_once ( 'wp-common/plugin_utils.php');
+//include_once ( 'wp-common/plugin_utils.php');
 /**
  *
  * @var string	$plugin_constant	Namespace of the plugin
@@ -27,7 +38,6 @@ class WP_FFPC_Backend {
 	private $status = array();
 	public $cookies = array();
 	private $urimap = array();
-	private $utilities;
 
 	/**
 	* constructor
@@ -50,17 +60,19 @@ class WP_FFPC_Backend {
 		/* these are the list of the cookies to look for when looking for logged in user */
 		$this->cookies = array ( 'comment_author_' , 'wordpressuser_' , 'wp-postpass_', 'wordpress_logged_in_' );
 
-		/* make utilities singleton */
-		$this->utilities = new PluginUtils();
-
 		/* map the key with the predefined schemes */
 		$ruser = isset ( $_SERVER['REMOTE_USER'] ) ? $_SERVER['REMOTE_USER'] : '';
 		$ruri = isset ( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '';
 		$rhost = isset ( $_SERVER['HTTP_HOST'] ) ? $_SERVER['HTTP_HOST'] : '';
 		$scookie = isset ( $_COOKIE['PHPSESSID'] ) ? $_COOKIE['PHPSESSID'] : '';
 
+		if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' )
+			$_SERVER['HTTPS'] = 'on';
+
+		$scheme = ( isset($_SERVER['HTTPS']) && (( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) )) ? 'https://' : 'http://';
+
 		$this->urimap = array(
-			'$scheme' => str_replace ( '://', '', $this->utilities->replace_if_ssl ( 'http://' ) ),
+			'$scheme' => str_replace ( '://', '', $scheme ),
 			'$host' => $rhost,
 			'$request_uri' => $ruri,
 			'$remote_user' => $ruser,
