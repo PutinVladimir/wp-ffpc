@@ -7,10 +7,6 @@
 if ( !WP_CACHE )
 	return false;
 
-/* check for config */
-if (!isset($wp_ffpc_config))
-	return false;
-
 /* no cache for post request (comments, plugins and so on) */
 if ($_SERVER["REQUEST_METHOD"] == 'POST')
 	return false;
@@ -22,13 +18,12 @@ if ($_SERVER["REQUEST_METHOD"] == 'POST')
 if (defined('SID') && SID != '')
 	return false;
 
+/* check for config */
+if (!isset($wp_ffpc_config))
+	return false;
+
 /* request uri */
 $wp_ffpc_uri = $_SERVER['REQUEST_URI'];
-
-
-/* no cache for uri with query strings, things usually go bad that way */
-if ( isset($wp_ffpc_config['nocache_dyn']) && !empty($wp_ffpc_config['nocache_dyn']) && stripos($wp_ffpc_uri, '?') !== false )
-	return false;
 
 /* no cache for robots.txt */
 if ( stripos($wp_ffpc_uri, 'robots.txt') )
@@ -46,6 +41,10 @@ elseif ( !empty ( $wp_ffpc_config[ $_SERVER['HTTP_HOST'] ] ) )
 	$wp_ffpc_config = $wp_ffpc_config[ $_SERVER['HTTP_HOST'] ];
 /* plugin config not found :( */
 else
+	return false;
+
+/* no cache for uri with query strings, things usually go bad that way */
+if ( isset($wp_ffpc_config['nocache_dyn']) && !empty($wp_ffpc_config['nocache_dyn']) && stripos($wp_ffpc_uri, '?') !== false )
 	return false;
 
 /* check for cookies that will make us not cache the content, like logged in WordPress cookie */
@@ -181,7 +180,7 @@ if ( $wp_ffpc_config['response_header'] )
 	header( 'X-Cache-Engine: WP-FFPC with ' . $wp_ffpc_config['cache_type'] .' via PHP');
 
 /* HTML data */
-echo $wp_ffpc_values['data'];
+echo trim($wp_ffpc_values['data']);
 
 flush();
 die();
@@ -333,8 +332,6 @@ function wp_ffpc_callback( $buffer ) {
 	}
 
 	/* echoes HTML out */
-	return $buffer;
+	return trim($buffer);
 }
 /*** END GENERATING CACHE ENTRY ***/
-
-?>

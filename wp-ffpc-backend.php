@@ -77,6 +77,20 @@ class WP_FFPC_Backend {
 		$this->log (  __translate__('init starting', $this->plugin_constant ));
 		$this->$init();
 
+
+		if (is_admin() && function_exists('add_filter')) {
+			add_filter('wp_ffpc_clear_keys_array', function($to_clear, $options) {
+				$filtered_result = array();
+				foreach ( $to_clear as $link => $dummy ) {
+					/* clear feeds, meta and data as well */
+					$filtered_result[ $options[ 'prefix_meta' ] . $link ] = true;
+					$filtered_result[ $options[ 'prefix_data' ] . $link ] = true;
+					$filtered_result[ $options[ 'prefix_meta' ] . $link . 'feed' ] = true;
+					$filtered_result[ $options[ 'prefix_data' ] . $link . 'feed' ] = true;
+				}
+				return $filtered_result;
+			}, 10, 2);
+		}
 	}
 
 
@@ -106,12 +120,17 @@ class WP_FFPC_Backend {
 	 * build key to make requests with
 	 *
 	 * @param string $prefix prefix to add to prefix
+	 * @param array $customUrimap to override defaults
 	 *
 	 */
-	public function key ( &$prefix ) {
+	public function key ( $prefix, $customUrimap = null ) {
+		$urimap = $customUrimap ?: $this->urimap;
+
+		$key_base = self::map_urimap($urimap, $this->options['key']);
 		/* data is string only with content, meta is not used in nginx */
-		$key = $prefix . self::map_urimap($this->urimap, $this->options['key']);
+		$key = sha1 ($prefix . $key_base );
 		$this->log ( sprintf( __translate__( 'original key configuration: %s', $this->plugin_constant ),  $this->options['key'] ) );
+		$this->log ( sprintf( __translate__( 'setting key for: %s', $this->plugin_constant ),  $key_base ) );
 		$this->log ( sprintf( __translate__( 'setting key to: %s', $this->plugin_constant ),  $key ) );
 		return $key;
 	}
@@ -125,7 +144,6 @@ class WP_FFPC_Backend {
 	 * @return mixed False when entry not found or entry value on success
 	 */
 	public function get ( &$key ) {
-
 		/* look for backend aliveness, exit on inactive backend */
 		if ( ! $this->is_alive() )
 			return false;
@@ -152,7 +170,6 @@ class WP_FFPC_Backend {
 	 * @return mixed $result status of set function
 	 */
 	public function set ( &$key, &$data, $expire = false ) {
-
 		/* look for backend aliveness, exit on inactive backend */
 		if ( ! $this->is_alive() )
 			return false;
@@ -283,19 +300,12 @@ class WP_FFPC_Backend {
 		/* Hook to custom clearing array. */
 		$to_clear = apply_filters('wp_ffpc_to_clear_array', $to_clear, $post_id);
 
-		foreach ( $to_clear as $link => $dummy ) {
-			/* clear all feeds as well */
-			$to_clear[ $link. 'feed' ] = true;
-		}
-
-		/* add data & meta prefixes */
-		foreach ( $to_clear as $link => $dummy ) {
-			unset ( $to_clear [ $link ]);
-			$to_clear[ $this->options[ 'prefix_meta' ] . $link ] = true;
-			$to_clear[ $this->options[ 'prefix_data' ] . $link ] = true;
-		}
-
 		/* run clear */
+		$this->clear_keys( $to_clear );
+	}
+
+	public function clear_keys( $keys ) {
+		$to_clear = apply_filters('wp_ffpc_clear_keys_array', $keys, $this->options);
 		$internal = $this->proxy ( 'clear' );
 		$this->$internal ( $to_clear );
 	}
@@ -470,11 +480,22 @@ class WP_FFPC_Backend {
 	 * @var mixed $message Message to log
 	 * @var int $log_level Log level
 	 */
-	private function log ( $message, $log_level = LOG_NOTICE ) {
-		if ( !isset ( $this->options['log'] ) || $this->options['log'] != 1 )
-			return false;
-		else
-			$this->utilities->log ( $this->plugin_constant , $message, $log_level );
+	private function log ( $message, $level = LOG_NOTICE ) {
+		if ( @is_array( $message ) || @is_object ( $message ) )
+			$message = json_encode($message);
+
+
+		switch ( $level ) {
+			case LOG_ERR :
+				wp_die( '<h1>Error:</h1>' . '<p>' . $message . '</p>' );
+				exit;
+			default:
+				if ( !defined( 'WP_DEBUG' ) && WP_DEBUG != true  )
+					return;
+				break;
+		}
+
+		error_log(  __CLASS__ . ": " . $message );
 	}
 
 	/*********************** END PUBLIC FUNCTIONS ***********************/
@@ -1074,4 +1095,4 @@ class WP_FFPC_Backend {
 
 }
 
-endif; ?>
+endif;

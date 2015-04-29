@@ -1,13 +1,22 @@
 <?php
+/* __ only availabe if we're running from the inside of wordpress, not in advanced-cache.php phase */
+if ( !function_exists ('__translate__') ) {
+	/* __ only availabe if we're running from the inside of wordpress, not in advanced-cache.php phase */
+	if ( function_exists ( '__' ) ) {
+		function __translate__ ( $text, $domain ) { return __($text, $domain); }
+	}
+	else {
+		function __translate__ ( $text, $domain ) { return $text; }
+	}
+}
 
-if (!class_exists('PluginAbstract')):
+if (!class_exists('WP_FFPC_ABSTRACT')):
 
-include_once ( dirname ( __FILE__ ) . '/plugin_utils.php' );
 /**
  * abstract class for common, required functionalities
  *
  */
-abstract class PluginAbstract {
+abstract class WP_FFPC_ABSTRACT {
 
 	const slug_save = '&saved=true';
 	const slug_delete = '&deleted=true';
@@ -71,7 +80,7 @@ abstract class PluginAbstract {
 			$this->donation = true;
 		}
 
-		$this->utils =  new PluginUtils();
+		//$this->utils =  new PluginUtils();
 
 		/* we need network wide plugin check functions */
 		if ( ! function_exists( 'is_plugin_active_for_network' ) )
@@ -222,7 +231,7 @@ abstract class PluginAbstract {
 	 * deletes saved options from database
 	 */
 	protected function plugin_options_delete () {
-		$this->utils->_delete_option ( $this->plugin_constant, $this->network );
+		static::_delete_option ( $this->plugin_constant, $this->network );
 
 		/* additional moves */
 		$this->plugin_extend_options_delete();
@@ -237,7 +246,7 @@ abstract class PluginAbstract {
 	 * reads options stored in database and reads merges them with default values
 	 */
 	protected function plugin_options_read () {
-		$options = $this->utils->_get_option ( $this->plugin_constant, $this->network );
+		$options = static::_get_option ( $this->plugin_constant, $this->network );
 
 		/* this is the point to make any migrations from previous versions */
 		$this->plugin_options_migrate( $options );
@@ -318,7 +327,7 @@ abstract class PluginAbstract {
 		$this->plugin_extend_options_save( $activating );
 
 		/* save options to database */
-		$this->utils->_update_option (  $this->plugin_constant , $this->options, $this->network );
+		static::_update_option (  $this->plugin_constant , $this->options, $this->network );
 	}
 
 	/**
@@ -459,6 +468,143 @@ abstract class PluginAbstract {
 	public function getoption ( $key ) {
 		return ( empty (  $this->options[ $key] ) ) ? false :  $this->options[ $key];
 	}
+
+
+	/**
+	 * UTILS
+	 */
+	/**
+	 * option update; will handle network wide or standalone site options
+	 *
+	 */
+	public static function _update_option ( $optionID, $data, $network = false ) {
+		if ( $network ) {
+			static::debug( sprintf( __( ' – updating network option %s', 'PluginUtils' ), $optionID ) );
+			update_site_option( $optionID , $data );
+		}
+		else {
+			static::debug( sprintf( __( '- updating option %s', 'PluginUtils' ), $optionID ));
+			update_option( $optionID , $data );
+		}
+	}
+
+	/**
+	 * read option; will handle network wide or standalone site options
+	 *
+	 */
+	public static function _get_option ( $optionID, $network = false ) {
+		if ( $network ) {
+			static::debug ( sprintf( __( '- getting network option %s', 'PluginUtils' ), $optionID ) );
+			$options = get_site_option( $optionID );
+		}
+		else {
+			static::debug( sprintf( __( ' – getting option %s', 'PluginUtils' ), $optionID ));
+			$options = get_option( $optionID );
+		}
+
+		return $options;
+	}
+
+	/**
+	 * clear option; will handle network wide or standalone site options
+	 *
+	 */
+	public static function _delete_option ( $optionID, $network = false ) {
+		if ( $network ) {
+			static::debug ( sprintf( __( ' – deleting network option %s', 'PluginUtils' ), $optionID ) );
+			delete_site_option( $optionID );
+		}
+		else {
+			static::debug ( sprintf( __( ' – deleting option %s', 'PluginUtils' ), $optionID ) );
+			delete_option( $optionID );
+		}
+	}
+
+	/**
+	 * read option; will handle network wide or standalone site options
+	 *
+	 */
+	public static function _site_url ( $site = '', $network = false ) {
+		if ( $network && !empty( $site ) )
+			$url = get_blog_option ( $site, 'siteurl' );
+		else
+			$url = get_bloginfo ( 'url' );
+
+		return $url;
+	}
+
+	/**
+	 * replaces http:// with https:// in an url if server is currently running on https
+	 *
+	 * @param string $url URL to check
+	 *
+	 * @return string URL with correct protocol
+	 *
+	 */
+	public static function replace_if_ssl ( $url ) {
+		if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https' )
+			$_SERVER['HTTPS'] = 'on';
+
+		if ( isset($_SERVER['HTTPS']) && (( strtolower($_SERVER['HTTPS']) == 'on' )  || ( $_SERVER['HTTPS'] == '1' ) ))
+			$url = str_replace ( 'http://' , 'https://' , $url );
+
+		return $url;
+	}
+
+	/**
+	 */
+	static function debug( $message, $level = LOG_NOTICE ) {
+		if ( @is_array( $message ) || @is_object ( $message ) )
+			$message = json_encode($message);
+
+
+		switch ( $level ) {
+			case LOG_ERR :
+				wp_die( '<h1>Error:</h1>' . '<p>' . $message . '</p>' );
+				exit;
+			default:
+				if ( !defined( 'WP_DEBUG' ) && WP_DEBUG != true  )
+					return;
+				break;
+		}
+
+		error_log(  __CLASS__ . ": " . $message );
+	}
+
+	/**
+	 * display formatted alert message
+	 *
+	 * @param string $msg Error message
+	 * @param string $error "level" of error
+	 * @param boolean $network WordPress network or not, DEPRECATED
+	 *
+	 */
+	static public function alert ( $msg, $level=LOG_WARNING, $network=false ) {
+		if ( empty($msg)) return false;
+
+		switch ($level) {
+			case LOG_ERR:
+			case LOG_WARNING:
+				$css = "error";
+				break;
+			default:
+				$css = "updated";
+				break;
+		}
+
+		$r = '<div class="'. $css .'"><p>'. sprintf ( __('%s', 'PluginUtils' ),  $msg ) .'</p></div>';
+		if ( version_compare(phpversion(), '5.3.0', '>=')) {
+			add_action('admin_notices', function() use ($r) { echo $r; }, 10 );
+		}
+		else {
+			global $tmp;
+			$tmp = $r;
+			$f = create_function ( '', 'global $tmp; echo $tmp;' );
+			add_action('admin_notices', $f );
+		}
+		static::debug( $msg, $level );
+	}
+
 }
 
 endif;
