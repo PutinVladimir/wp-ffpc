@@ -139,10 +139,11 @@ class WP_FFPC_Backend {
 		$urimap = $customUrimap ?: $this->urimap;
 
 		$key_base = self::map_urimap($urimap, $this->options['key']);
-		/* data is string only with content, meta is not used in nginx */
-		$key = $prefix . $key_base;
+
 		if ( isset($this->options['hashkey']) && $this->options['hashkey'] == true)
-			$key = sha1 ($prefix . $key_base );
+			$key_base = sha1($key_base);
+
+		$key = $prefix . $key_base;
 
 		$this->log ( sprintf( __translate__( 'original key configuration: %s', $this->plugin_constant ),  $this->options['key'] ) );
 		$this->log ( sprintf( __translate__( 'setting key for: %s', $this->plugin_constant ),  $key_base ) );

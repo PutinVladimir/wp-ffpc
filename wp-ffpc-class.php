@@ -576,7 +576,7 @@ class WP_FFPC extends WP_FFPC_ABSTRACT {
 				</dt>
 				<dd>
 					<input type="checkbox" name="hashkey" id="hashkey" value="1" <?php checked($this->options['hashkey'],true); ?> />
-					<span class="description"><?php _e('Occasionally URL can be too long to be used as key for the backend storage, especially with memcached. Turn on this feature to use SHA1 hash of the URL as key instead. Please be aware that you have to add ( or uncomment ) a line in nginx if you want nginx to fetch the data directly; for details, please see the nginx example tab.', $this->plugin_constant); ?>
+					<span class="description"><?php _e('Occasionally URL can be too long to be used as key for the backend storage, especially with memcached. Turn on this feature to use SHA1 hash of the URL as key instead. Please be aware that you have to add ( or uncomment ) a line and a <strong>module</strong> in nginx if you want nginx to fetch the data directly; for details, please see the nginx example tab.', $this->plugin_constant); ?>
 				</dd>
 
 
@@ -745,6 +745,7 @@ class WP_FFPC extends WP_FFPC_ABSTRACT {
 
 			<fieldset id="<?php echo $this->plugin_constant ?>-nginx">
 			<legend><?php _e('Sample config for nginx to utilize the data entries', $this->plugin_constant); ?></legend>
+			<div class="update-nag"><strong>In case you are about to use nginx to fetch memcached entries directly and to use SHA1 hash keys, you will need an nginx version compiled with <a href="http://wiki.nginx.org/HttpSetMiscModule">HttpSetMiscModule</a>. Otherwise set_sha1 function is not available in nginx.</strong></div>
 			<pre><?php echo $this->nginx_example(); ?></pre>
 			</fieldset>
 
@@ -1019,10 +1020,19 @@ class WP_FFPC extends WP_FFPC_ABSTRACT {
 		/* read the sample file */
 		$nginx = file_get_contents ( $this->nginx_sample );
 
+		if ( isset($this->options['hashkey']) && $this->options['hashkey'] == true )
+			$mckeys = 'set_sha1 $memcached_sha1_key $memcached_raw_key;
+			set $memcached_key DATAPREFIX$memcached_sha1_key;';
+		else
+			$mckeys = 'set $memcached_key DATAPREFIX$memcached_raw_key;';
+
+		$nginx = str_replace ( 'HASHEDORNOT' , $mckeys , $nginx );
+
 		/* replace the data prefix with the configured one */
-		$to_replace = array ( 'DATAPREFIX' , 'SERVERROOT', 'SERVERLOG' );
-		$replace_with = array ( $this->options['prefix_data'] . $this->options['key'] , ABSPATH, $_SERVER['SERVER_NAME'] );
+		$to_replace = array ( 'DATAPREFIX' , 'KEYFORMAT',  'SERVERROOT', 'SERVERLOG' );
+		$replace_with = array ( $this->options['prefix_data'],  $this->options['key'] , ABSPATH, $_SERVER['SERVER_NAME'] );
 		$nginx = str_replace ( $to_replace , $replace_with , $nginx );
+
 
 		/* set upstream servers from configured servers, best to get from the actual backend */
 		$servers = $this->backend->get_servers();
