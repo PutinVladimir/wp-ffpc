@@ -1,51 +1,89 @@
 <?php
+
+defined('ABSPATH') or die("Walk away.");
+
 /**
  * advanced cache worker of WordPress plugin WP-FFPC
  */
 
+function __wp_ffpc_debug__ ( $text ) {
+	if ( defined('WP_FFPC__DEBUG_MODE') && WP_FFPC__DEBUG_MODE == true)
+		error_log ( 'WP_FFPC_ACache' . ': ' . $text );
+}
+
 /* check for WP cache enabled*/
-if ( !WP_CACHE )
+if ( !defined('WP_CACHE') || WP_CACHE != true ) {
+	__wp_ffpc_debug__('WP_CACHE is not true');
 	return false;
+}
 
 /* no cache for post request (comments, plugins and so on) */
-if ($_SERVER["REQUEST_METHOD"] == 'POST')
+if ($_SERVER["REQUEST_METHOD"] == 'POST') {
+	__wp_ffpc_debug__('POST requests are never cached');
 	return false;
+}
 
 /**
  * Try to avoid enabling the cache if sessions are managed
  * with request parameters and a session is active
  */
-if (defined('SID') && SID != '')
+if (defined('SID') && SID != '') {
+	__wp_ffpc_debug__('SID found, skipping cache');
 	return false;
+}
 
 /* check for config */
-if (!isset($wp_ffpc_config))
+if (!isset($wp_ffpc_config)) {
+	__wp_ffpc_debug__('wp_ffpc_config variable not found');
 	return false;
+}
 
 /* request uri */
 $wp_ffpc_uri = $_SERVER['REQUEST_URI'];
 
 /* no cache for robots.txt */
-if ( stripos($wp_ffpc_uri, 'robots.txt') )
+if ( stripos($wp_ffpc_uri, 'robots.txt') ) {
+	__wp_ffpc_debug__ ( 'Skippings robots.txt hit');
 	return false;
+}
 
 /* multisite files can be too large for memcached */
-if ( function_exists('is_multisite') && stripos($wp_ffpc_uri, '/files/') && is_multisite() )
+if ( function_exists('is_multisite') && stripos($wp_ffpc_uri, '/files/') && is_multisite() ) {
+	__wp_ffpc_debug__ ( 'Skippings multisite /files/ hit');
 	return false;
+}
 
 /* check if config is network active: use network config */
-if (!empty ( $wp_ffpc_config['network'] ) )
+if (!empty ( $wp_ffpc_config['network'] ) ) {
 	$wp_ffpc_config = $wp_ffpc_config['network'];
+	__wp_ffpc_debug__('using "network" level config');
+}
 /* check if config is active for site : use site config */
-elseif ( !empty ( $wp_ffpc_config[ $_SERVER['HTTP_HOST'] ] ) )
+elseif ( !empty ( $wp_ffpc_config[ $_SERVER['HTTP_HOST'] ] ) ) {
 	$wp_ffpc_config = $wp_ffpc_config[ $_SERVER['HTTP_HOST'] ];
+	__wp_ffpc_debug__("using {$_SERVER['HTTP_HOST']} level config");
+}
 /* plugin config not found :( */
-else
+else {
+	__wp_ffpc_debug__("no usable config found");
 	return false;
+}
+
+/* no cache for WooCommerce URL patterns */
+if ( isset($wp_ffpc_config['nocache_woocommerce']) && !empty($wp_ffpc_config['nocache_woocommerce']) && 
+     isset($wp_ffpc_config['nocache_woocommerce_url']) && trim($wp_ffpc_config['nocache_woocommerce_url']) ) {
+	$pattern = sprintf('#%s#', trim($wp_ffpc_config['nocache_woocommerce_url']));
+	if ( preg_match($pattern, $wp_ffpc_uri) ) {
+		__wp_ffpc_debug__ ( "Cache exception based on WooCommenrce URL regex pattern matched, skipping");
+		return false;
+	}
+}
 
 /* no cache for uri with query strings, things usually go bad that way */
-if ( isset($wp_ffpc_config['nocache_dyn']) && !empty($wp_ffpc_config['nocache_dyn']) && stripos($wp_ffpc_uri, '?') !== false )
+if ( isset($wp_ffpc_config['nocache_dyn']) && !empty($wp_ffpc_config['nocache_dyn']) && stripos($wp_ffpc_uri, '?') !== false ) {
+	__wp_ffpc_debug__ ( 'Dynamic url cache is disabled ( url with "?" ), skipping');
 	return false;
+}
 
 /* check for cookies that will make us not cache the content, like logged in WordPress cookie */
 if ( isset($wp_ffpc_config['nocache_cookies']) && !empty($wp_ffpc_config['nocache_cookies']) ) {
@@ -56,6 +94,7 @@ if ( isset($wp_ffpc_config['nocache_cookies']) && !empty($wp_ffpc_config['nocach
 			/* check for any matches to user-added cookies to no-cache */
 			foreach ( $nocache_cookies as $nocache_cookie ) {
 				if( strpos( $n, $nocache_cookie ) === 0 ) {
+					__wp_ffpc_debug__ ( "Cookie exception matched: {$n}, skipping");
 					return false;
 				}
 			}
@@ -67,17 +106,19 @@ if ( isset($wp_ffpc_config['nocache_cookies']) && !empty($wp_ffpc_config['nocach
 if ( isset($wp_ffpc_config['nocache_url']) && trim($wp_ffpc_config['nocache_url']) ) {
 	$pattern = sprintf('#%s#', trim($wp_ffpc_config['nocache_url']));
 	if ( preg_match($pattern, $wp_ffpc_uri) ) {
+		__wp_ffpc_debug__ ( "Cache exception based on URL regex pattern matched, skipping");
 		return false;
 	}
 }
-
 
 /* canonical redirect storage */
 $wp_ffpc_redirect = null;
 /* fires up the backend storage array with current config */
 include_once ('wp-ffpc-backend.php');
-$wp_ffpc_backend = new WP_FFPC_Backend( $wp_ffpc_config );
+$backend_class = 'WP_FFPC_Backend_' . $wp_ffpc_config['cache_type'];
+$wp_ffpc_backend = new $backend_class ( $wp_ffpc_config );
 
+//$wp_ffpc_backend = new WP_FFPC_Backend( $wp_ffpc_config );
 
 /* no cache for for logged in users unless it's set
    identifier cookies are listed in backend as var for easier usage
@@ -87,30 +128,34 @@ if ( !isset($wp_ffpc_config['cache_loggedin']) || $wp_ffpc_config['cache_loggedi
 	foreach ($_COOKIE as $n=>$v) {
 		foreach ( $wp_ffpc_backend->cookies as $nocache_cookie ) {
 			if( strpos( $n, $nocache_cookie ) === 0 ) {
+				__wp_ffpc_debug__ ( "No cache for cookie: {$n}, skipping");
 				return false;
 			}
 		}
 	}
-
 }
-
 
 /* will store time of page generation */
 $wp_ffpc_gentime = 0;
 
 /* backend connection failed, no caching :( */
-if ( $wp_ffpc_backend->status() === false )
+if ( $wp_ffpc_backend->status() === false ) {
+	__wp_ffpc_debug__ ( "Backend offline");
 	return false;
+}
 
 /* try to get data & meta keys for current page */
 $wp_ffpc_keys = array ( 'meta' => $wp_ffpc_config['prefix_meta'], 'data' => $wp_ffpc_config['prefix_data'] );
 $wp_ffpc_values = array();
+
+__wp_ffpc_debug__ ( "Trying to fetch entries");
 
 foreach ( $wp_ffpc_keys as $internal => $key ) {
 	$key = $wp_ffpc_backend->key ( $key );
 	$value = $wp_ffpc_backend->get ( $key );
 
 	if ( ! $value ) {
+		__wp_ffpc_debug__("No cached data found");
 		/* does not matter which is missing, we need both, if one fails, no caching */
 		wp_ffpc_start();
 		return;
@@ -118,11 +163,13 @@ foreach ( $wp_ffpc_keys as $internal => $key ) {
 	else {
 		/* store results */
 		$wp_ffpc_values[ $internal ] = $value;
+		__wp_ffpc_debug__('Got value for ' . $internal);
 	}
 }
 
 /* serve cache 404 status */
 if ( isset( $wp_ffpc_values['meta']['status'] ) &&  $wp_ffpc_values['meta']['status'] == 404 ) {
+	__wp_ffpc_debug__("Serving 404");
 	header("HTTP/1.1 404 Not Found");
 	/* if I kill the page serving here, the 404 page will not be showed at all, so we do not do that
 	 * flush();
@@ -132,6 +179,7 @@ if ( isset( $wp_ffpc_values['meta']['status'] ) &&  $wp_ffpc_values['meta']['sta
 
 /* server redirect cache */
 if ( isset( $wp_ffpc_values['meta']['redirect'] ) && $wp_ffpc_values['meta']['redirect'] ) {
+	__wp_ffpc_debug__("Serving redirect to {$wp_ffpc_values['meta']['redirect']}");
 	header('Location: ' . $wp_ffpc_values['meta']['redirect'] );
 	/* cut the connection as fast as possible */
 	flush();
@@ -143,6 +191,7 @@ if ( array_key_exists( "HTTP_IF_MODIFIED_SINCE" , $_SERVER ) && !empty( $wp_ffpc
 	$if_modified_since = strtotime(preg_replace('/;.*$/', '', $_SERVER["HTTP_IF_MODIFIED_SINCE"]));
 	/* check is cache is still valid */
 	if ( $if_modified_since >= $wp_ffpc_values['meta']['lastmodified'] ) {
+		__wp_ffpc_debug__("Serving 304 Not Modified");
 		header("HTTP/1.0 304 Not Modified");
 		/* connection cut for faster serving */
 		flush();
@@ -156,30 +205,67 @@ if ( array_key_exists( "HTTP_IF_MODIFIED_SINCE" , $_SERVER ) && !empty( $wp_ffpc
 if (!empty ( $wp_ffpc_values['meta']['mime'] ) )
 	header('Content-Type: ' . $wp_ffpc_values['meta']['mime']);
 
-/* don't allow browser caching of page */
-header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
-header('Pragma: no-cache');
+/* set expiry date */
+if (isset($wp_ffpc_values['meta']['expire']) && !empty ( $wp_ffpc_values['meta']['expire'] ) ) {
+	$hash = md5 ( $wp_ffpc_uri . $wp_ffpc_values['meta']['expire'] );
 
-/* expire at this very moment */
-header('Expires: ' . gmdate("D, d M Y H:i:s", time() ) . " GMT");
+	switch ($wp_ffpc_values['meta']['type']) {
+		case 'home':
+		case 'feed':
+			$expire = $wp_ffpc_config['browsercache_home'];
+			break;
+		case 'archive':
+			$expire = $wp_ffpc_config['browsercache_taxonomy'];
+			break;
+		case 'single':
+			$expire = $wp_ffpc_config['browsercache'];
+			break;
+		default:
+			$expire = 0;
+	}
+
+	header('Cache-Control: public,max-age='.$expire.',s-maxage='.$expire.',must-revalidate');
+	header('Expires: ' . gmdate("D, d M Y H:i:s", $wp_ffpc_values['meta']['expire'] ) . " GMT");
+	header('ETag: '. $hash);
+	unset($expire, $hash);
+}
+else {
+	/* in case there is no expiry set, expire immediately and don't serve Etag; browser cache is disabled */
+	header('Expires: ' . gmdate("D, d M Y H:i:s", time() ) . " GMT");
+	/* if I set these, the 304 not modified will never, ever kick in, so not setting these
+	 * leaving here as a reminder why it should not be set */
+	//header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, s-maxage=0, post-check=0, pre-check=0');
+	//header('Pragma: no-cache');
+}
 
 /* if shortlinks were set */
-if (!empty ( $wp_ffpc_values['meta']['shortlink'] ) )
+if (isset($wp_ffpc_values['meta']['shortlink']) && !empty ( $wp_ffpc_values['meta']['shortlink'] ) )
 	header( 'Link:<'. $wp_ffpc_values['meta']['shortlink'] .'>; rel=shortlink' );
 
 /* if last modifications were set (for posts & pages) */
-if ( !empty($wp_ffpc_values['meta']['lastmodified']) )
+if (isset($wp_ffpc_values['meta']['lastmodified']) && !empty($wp_ffpc_values['meta']['lastmodified']) )
 	header( 'Last-Modified: ' . gmdate("D, d M Y H:i:s", $wp_ffpc_values['meta']['lastmodified'] ). " GMT" );
 
 /* pingback urls, if existx */
-if ( !empty( $wp_ffpc_values['meta']['pingback'] ) && $wp_ffpc_config['pingback_header'] )
+if ( isset($wp_ffpc_values['meta']['pingback']) && !empty( $wp_ffpc_values['meta']['pingback'] ) && isset($wp_ffpc_config['pingback_header']) && $wp_ffpc_config['pingback_header'] )
 	header( 'X-Pingback: ' . $wp_ffpc_values['meta']['pingback'] );
 
 /* for debugging */
-if ( $wp_ffpc_config['response_header'] )
+if ( isset($wp_ffpc_config['response_header']) && $wp_ffpc_config['response_header'] )
 	header( 'X-Cache-Engine: WP-FFPC with ' . $wp_ffpc_config['cache_type'] .' via PHP');
 
 /* HTML data */
+if ( isset($wp_ffpc_config['generate_time']) && $wp_ffpc_config['generate_time'] == '1' && stripos($wp_ffpc_values['data'], '</body>') ) {
+	$mtime = explode ( " ", microtime() );
+	$wp_ffpc_gentime = ( $mtime[1] + $mtime[0] ) - $wp_ffpc_gentime;
+
+	$insertion = "\n<!-- WP-FFPC cache output stats\n\tcache engine: ". $wp_ffpc_config['cache_type'] ."\n\tUNIX timestamp: ". time() . "\n\tdate: ". date( 'c' ) . "\n\tfrom server: ". $_SERVER['SERVER_ADDR'] . " -->\n";
+	$index = stripos( $wp_ffpc_values['data'] , '</body>' );
+
+	$wp_ffpc_values['data'] = substr_replace( $wp_ffpc_values['data'], $insertion, $index, 0);
+}
+
+__wp_ffpc_debug__("Serving data");
 echo trim($wp_ffpc_values['data']);
 
 flush();
@@ -243,18 +329,99 @@ function wp_ffpc_callback( $buffer ) {
 	if (strlen($buffer) == 0)
 		return '';
 
-	if ( is_home() )
-		$meta['type'] = 'home';
-	elseif (is_feed() )
-		$meta['type'] = 'feed';
-	elseif ( is_archive() )
+	if ( isset($wp_ffpc_config[ 'nocache_comment' ]) && !empty($wp_ffpc_config[ 'nocache_comment' ]) && trim($wp_ffpc_config[ 'nocache_comment' ])) {
+		$pattern = sprintf('#%s#', trim($wp_ffpc_config['nocache_comment']));
+		__wp_ffpc_debug__ ( sprintf("Testing comment with pattern: %s", $pattern));
+		if ( preg_match($pattern, $buffer) ) {
+			__wp_ffpc_debug__ ( "Cache exception based on content regex pattern matched, skipping");
+			return $buffer;
+		}
+	}
+
+	if ( is_home() || is_feed() ) {
+		if (is_home())
+			$meta['type'] = 'home';
+		elseif(is_feed())
+			$meta['type'] = 'feed';
+
+		if (isset($wp_ffpc_config['browsercache_home']) && !empty($wp_ffpc_config['browsercache_home']) && $wp_ffpc_config['browsercache_home'] > 0) {
+			$meta['expire'] = time() + $wp_ffpc_config['browsercache_home'];
+		}
+
+		__wp_ffpc_debug__( 'Getting latest post for for home & feed');
+		/* get newest post and set last modified accordingly */
+		$args = array(
+			'numberposts' => 1,
+			'orderby' => 'modified',
+			'order' => 'DESC',
+			'post_status' => 'publish',
+		);
+
+		$recent_post = wp_get_recent_posts( $args, OBJECT );
+		if ( !empty($recent_post)) {
+			$recent_post = array_pop($recent_post);
+			if (!empty ( $recent_post->post_modified_gmt ) ) {
+				$meta['lastmodified'] = strtotime ( $recent_post->post_modified_gmt );
+			}
+		}
+
+	}
+	elseif ( is_archive() ) {
 		$meta['type'] = 'archive';
-	elseif ( is_single() )
+		if (isset($wp_ffpc_config['browsercache_taxonomy']) && !empty($wp_ffpc_config['browsercache_taxonomy']) && $wp_ffpc_config['browsercache_taxonomy'] > 0) {
+			$meta['expire'] = time() + $wp_ffpc_config['browsercache_taxonomy'];
+		}
+
+		global $wp_query;
+
+		if ( null != $wp_query->tax_query && !empty($wp_query->tax_query)) {
+			__wp_ffpc_debug__( 'Getting latest post for taxonomy: ' . json_encode($wp_query->tax_query));
+
+			$args = array(
+				'numberposts' => 1,
+				'orderby' => 'modified',
+				'order' => 'DESC',
+				'post_status' => 'publish',
+				'tax_query' => $wp_query->tax_query,
+			);
+
+			$recent_post =  get_posts( $args, OBJECT );
+
+			if ( !empty($recent_post)) {
+				$recent_post = array_pop($recent_post);
+				if (!empty ( $recent_post->post_modified_gmt ) ) {
+					$meta['lastmodified'] = strtotime ( $recent_post->post_modified_gmt );
+				}
+			}
+		}
+
+	}
+	elseif ( is_single() || is_page() ) {
 		$meta['type'] = 'single';
-	elseif ( is_page() )
-		$meta['type'] = 'page';
-	else
+		if (isset($wp_ffpc_config['browsercache']) && !empty($wp_ffpc_config['browsercache']) && $wp_ffpc_config['browsercache'] > 0) {
+			$meta['expire'] = time() + $wp_ffpc_config['browsercache'];
+		}
+
+		/* try if post is available
+			if made with archieve, last listed post can make this go bad
+		*/
+		global $post;
+		if ( !empty($post) && !empty ( $post->post_modified_gmt ) ) {
+			/* get last modification data */
+			$meta['lastmodified'] = strtotime ( $post->post_modified_gmt );
+
+			/* get shortlink, if possible */
+			if (function_exists('wp_get_shortlink')) {
+				$shortlink = wp_get_shortlink( );
+				if (!empty ( $shortlink ) )
+					$meta['shortlink'] = $shortlink;
+			}
+		}
+
+	}
+	else {
 		$meta['type'] = 'unknown';
+	}
 
 	if ( $meta['type'] != 'unknown' ) {
 		/* check if caching is disabled for page type */
@@ -282,25 +449,11 @@ function wp_ffpc_callback( $buffer ) {
 	/* set mimetype */
 	$meta['mime'] = $meta['mime'] . $wp_ffpc_config['charset'];
 
-	/* try if post is available
-		if made with archieve, last listed post can make this go bad
-	*/
-	global $post;
-	if ( !empty($post) && ( $meta['type'] == 'single' || $meta['type'] == 'page' ) && !empty ( $post->post_modified_gmt ) ) {
-		/* get last modification data */
-		$meta['lastmodified'] = strtotime ( $post->post_modified_gmt );
-
-		/* get shortlink, if possible */
-		if (function_exists('wp_get_shortlink')) {
-			$shortlink = wp_get_shortlink( );
-			if (!empty ( $shortlink ) )
-				$meta['shortlink'] = $shortlink;
-		}
-	}
-
 	/* store pingback url if pingbacks are enabled */
 	if ( get_option ( 'default_ping_status' ) == 'open' )
 		$meta['pingback'] = get_bloginfo('pingback_url');
+
+	$to_store = $buffer;
 
 	/* add generation info is option is set, but only to HTML */
 	if ( $wp_ffpc_config['generate_time'] == '1' && stripos($buffer, '</body>') ) {
@@ -308,20 +461,30 @@ function wp_ffpc_callback( $buffer ) {
 		$mtime = explode ( " ", microtime() );
 		$wp_ffpc_gentime = ( $mtime[1] + $mtime[0] )- $wp_ffpc_gentime;
 
-		$insertion = "\n<!-- \nWP-FFPC \n\tcache engine: ". $wp_ffpc_config['cache_type'] ."\n\tpage generation time: ". round( $wp_ffpc_gentime, 3 ) ." seconds\n\tgeneraton UNIX timestamp: ". time() . "\n\tgeneraton date: ". date( 'c' ) . "\n\tserver: ". $_SERVER['SERVER_ADDR'] . "\n-->\n";
+		$insertion = "\n<!-- WP-FFPC cache generation stats" . "\n\tgeneration time: ". round( $wp_ffpc_gentime, 3 ) ." seconds\n\tgeneraton UNIX timestamp: ". time() . "\n\tgeneraton date: ". date( 'c' ) . "\n\tgenerator server: ". $_SERVER['SERVER_ADDR'] . " -->\n";
 		$index = stripos( $buffer , '</body>' );
 
-		$buffer = substr_replace( $buffer, $insertion, $index, 0);
+		$to_store = substr_replace( $buffer, $insertion, $index, 0);
 	}
+
+	/**
+	 * Allows to edit the content to be stored in cache.
+	 *
+	 * This hooks allows the user to edit the page content right before it is about
+	 * to be stored in the cache. This could be useful for alterations like
+	 * minification.
+	 *
+	 * @since 1.10.2
+	 *
+	 * @param string $to_store The content to be stored in cache.
+	 */
+	$to_store = apply_filters( 'wp-ffpc-to-store', $to_store );
 
 	$prefix_meta = $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_meta'] );
 	$wp_ffpc_backend->set ( $prefix_meta, $meta );
 
 	$prefix_data = $wp_ffpc_backend->key ( $wp_ffpc_config['prefix_data'] );
-
-	//if ( $wp_ffpc_config['gzip'] && function_exists('gzencode') )
-
-	$wp_ffpc_backend->set ( $prefix_data , $buffer );
+	$wp_ffpc_backend->set ( $prefix_data , $to_store );
 
 	if ( !empty( $meta['status'] ) && $meta['status'] == 404 ) {
 		header("HTTP/1.1 404 Not Found");

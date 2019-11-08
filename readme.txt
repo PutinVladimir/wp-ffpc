@@ -1,81 +1,72 @@
 === WP-FFPC ===
-Contributors: cadeyrn, ameir, haroldkyle, plescheff, dkcwd, IgorCode
-Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XU3DG7LLA76WC
-Tags: cache, page cache, full page cache, nginx, memcached, apc, speed
+Contributors: cadeyrn
+Tags: cache, nginx, memcached, apc
 Requires at least: 3.0
-Tested up to: 4.2.1
-Stable tag: 1.8.3
+Tested up to: 4.7.2
+Stable tag: 1.11.2
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
-The fastest way to cache: use the memory!
+A fast, memory based full page cache plugin supporting APC or memcached.
 
 == Description ==
 
-WP-FFPC ( WordPress Fast Full Page Cache ) is a cache plugin for [WordPress](http://wordpress.org/ "WordPress"). It works with any webserver, including apache2, lighttpd, nginx.
-It can be configured to join forces with [NGiNX](http://NGiNX.org "NGiNX")'s built-in [memcached plugin](http://nginx.org/en/docs/http/ngx_http_memcached_module.html "memcached plugin") for unbeatable speed.
+**WARNING** The development of WP-FFPC had been put on hold.
+If you need new features, please send code and pull requests to [WP FFPC @ Github](https://github.com/petermolnar/wp-ffpc).
 
-= IMPORTANT NOTES, PLEASE READ THIS LIST =
+*A short why: I developed this plugin in 2010 to support my own site. Right now, as it is, it's working on a few sites I still maintain for friends and since I don't need any additional features, I'm not planning to extend it with things I have no real use of. During the past years I've received some heartwarming donations - unfortunately the amount never came close to consider the project financially beneficial. I removed the donation links and put it on hold for now.*
 
-* Requirements:
-  * WordPress >= 3.0
-  * **at least one** of the following for storage backend:
+
+WP-FFPC is a cache plugin for [WordPress](http://wordpress.org/ "WordPress").
+It works with any webserver, including, but not limited to, apache2, lighttpd, nginx.
+
+It can be configured together with [NGiNX](http://NGiNX.org "NGiNX") but use [memcached plugin](http://nginx.org/en/docs/http/ngx_http_memcached_module.html "memcached plugin") directly from the webserver, bypassing PHP.
+
+= Requirements =
+
+**This plugin does not kick in right after activation**. You have to adjust the setting in Settings -> WP-FFPC and save the settings.*
+
+* WordPress >= 3.0
+* **at least one** of the following for storage backend:
     * memcached with [PHP Memcached](http://php.net/manual/en/book.memcached.php "Memcached") > 0.1.0
     * memcached with [PHP Memcache](http://php.net/manual/en/book.memcache.php "Memcache") > 2.1.0
     * [APC](http://php.net/manual/en/book.apc.php "APC")
     * [APCu](http://pecl.php.net/package/APCu "APC User Cache")
-  * PHP 5.3+ is really highly recommended, see "Known issues"
-* This plugin does kick in right after activation. You have to adjust the setting in Settings -> WP-FFPC.*
+* PHP 5.3+ is really highly recommended, see "Known issues"
 
 
 = Known issues =
 
-* errors will not be displayed on the admin section if PHP < 5.3, only in the logs. This is due to the limitations of displaying the errors ( admin_notices is a hook, not a filter ) and due to the lack of proper anonymus functions in older PHP. PHP 5.3 is 5 years old, so it's time to upgrade.
-* APC with PHP 5.4 is buggy; the plugin with that setup can even make your site slower. Please use APCu or memcached if you're using PHP >= 5.4
+* errors will not be displayed on the admin section if PHP < 5.3, only in the logs. This is due to the limitations of displaying the errors ( admin_notices is a hook, not a filter ) and due to the lack of proper anonymus functions in older PHP.
+* **If you're using PHP 5.4+ avoid the APC backend: the plugin with that setup can even make your site slower.** Please use APCu or memcached in this case.
 
 = Features: =
 
-* Wordpress Network support
-  * fully supported domain/subdomain based WordPress Networks on per site setup as well
-  * will work in Network Enabled mode only for subdirectory based Multisites ( per site settings will not work in this case )
-* supports various backends
+* various backends
   * memcached with [PHP Memcached](http://php.net/manual/en/book.memcached.php "Memcached")
   * memcached with [PHP Memcache](http://php.net/manual/en/book.memcache.php "Memcache")
   * [APC](http://php.net/manual/en/book.apc.php "APC")
   * [APCu](http://pecl.php.net/package/APCu "APC User Cache")
-  * [Xcache](http://xcache.lighttpd.net/ "Xcache") - not stable yet, volunteer testers required!
-* cache exclude options ( home, feeds, archieves, pages, singles; regex based url exclusion )
+* cache exclude options ( home, feeds, archives, pages, singles; regex based url exclusion )
+* minor Woocommerce support
 * (optional) cache for logged-in users
 * 404 caching
 * canonical redirects caching
-* Last Modified HTTP header support ( for 304 responses )
+* Last Modified HTTP header support (for 304 responses)
 * shortlink HTTP header preservation
 * pingback HTTP header preservation
 * talkative log for [WP_DEBUG](http://codex.wordpress.org/WP_DEBUG "WP_DEBUG")
 * multiple memcached upstream support
 * precache ( manually or by timed by wp-cron )
 * varying expiration time for posts, taxonomies and home
+* (**warning**: untested since WordPress 3.8) Wordpress Network support
+  * fully supported domain/subdomain based WordPress Networks on per site setup as well
+  * will work in Network Enabled mode only for subdirectory based Multisites ( per site settings will not work in this case )
 
 
 Many thanks for donations, contributors, supporters, testers & bug reporters:
 
-* [Harold Kyle](https://github.com/haroldkyle)
-* [Eric Gilette](http://www.ericgillette.com/)
-* [doconeill](http://wordpress.org/support/profile/doconeill)
-* Mark Costlow
-* Jason Miller
-* [Dave Clark](https://github.com/dkcwd)
-* Miguel Clara
-* [Anton Pelešev](https://github.com/plescheff)
-* Firas Dib
-* [CotswoldPhoto](http://wordpress.org/support/profile/cotswoldphoto)
-* [tamagokun](https://github.com/tamagokun)
-* Many Ayromlou
-* mailgarant.nl
-* Christian Rößner
-* [Ameir Abdeldayem](https://github.com/ameir)
-* [Alvaro Gonzalez](https://github.com/andor-pierdelacabeza)
-* Meint Post
+Harold Kyle, Eric Gilette, doconeill, Mark Costlow, Jason Miller, Dave Clark, Miguel Clara, Anton Pelešev, Firas Dib, CotswoldPhoto, tamagokun, Many Ayromlou, mailgarant.nl, Christian Rößner, Ameir Abdeldayem, Alvaro Gonzalez, Meint Post, Knut Sparhell, Christian Kernbeis, Gausden Barry, Maksim Bukreyeu, Lissome Hong Kong Limited, Gabriele Lauricella, 7th Veil, LLC, Julia Harsch, Grant Berntsen, Jorgen Ilstad, Cinema Minima for Movie Makers Worldwide
 
 == Installation ==
 
@@ -92,22 +83,27 @@ A short configuration example is generated on the plugin settings page, under `N
 
 == Frequently Asked Questions ==
 
-= How to use the plugin on Amazon Linux? =
-You have to remove the default yum package, named `php-pecl-memcache` and install `Memcached` through PECL.
+= The plugin is not working! =
 
-= How to use the plugin in a WordPress Network =
-From version 1.0, the plugin supports subdomain based WordPress Network with possible different per site cache settings. If the plugin is network active, obviously the network wide settings will be used for all of the sites. If it's activated only on some of the sites, the other will not be affected and even the cache storage backend can be different from site to site.
+Did you save the settings as mentioned in this document?
+Do you have at lest one supported backend?
 
-= How logging works in the plugin? =
-Log levels by default ( if logging enabled ) includes warning and error level standard PHP messages.
-Additional info level log is available when [WP_DEBUG](http://codex.wordpress.org/WP_DEBUG "WP_DEBUG") is enabled.
+= It's making my site slower than it was! =
 
-= How can I contribute? =
-In order to make contributions a lot easier, I've moved the plugin development to [GitHub](https://github.com/petermolnar/wp-ffpc "GitHub"), feel free to fork and put shiny, new things in it and get in touch with me [hello@petermolnar.eu](mailto:hello@petermolnar.eu "hello@petermolnar.eu") when you have it ready.
+So far this only happened if PHP 5.4 or higher was used with APC.
+Please avoid this setup; PHP 5.4 shipped opcache and APC is full of bugs since then. Use APCu with PHP 5.4+.
 
-= Where can I turn for support? =
-I provide support for the plugin as best as I can, but it comes without guarantee.
-Please post feature requests to [WP-FFPC feature request topic](http://wordpress.org/support/topic/feature-requests-14 "WP-FFPC feature request topic") and any questions on the forum.
+= Does it support mobile theme switching? =
+
+No, it doesn't, and with the way it's currently working, it never will.
+WP-FFPC is using the URL as key for caching, so it can't differentiate if there is no change in the URL.
+*(I personally also disagree with separation of mobile and non-mobile theme; you need to support a plethora of screen sizes and resolutions, so just use responsive designs instead of splitted logics.)*
+
+= Can you please add '(insert shiny new feature here)'? =
+
+Sure. Send me a code and a pull request on [WP FFPC @ Github](https://github.com/petermolnar/wp-ffpc).
+Unfortunately I don't have the resources to code it myself, but there are plenty of WordPress developers who would probably do it for a minor fee.
+
 
 == Screenshots ==
 
@@ -124,6 +120,65 @@ Version numbering logic:
 * every A. indicates BIG changes.
 * every .B version indicates new features.
 * every ..C indicates bugfixes for A.B version.
+
+= 1.11.2 =
+*2017-02-08*
+
+* annoying typos in text
+
+= 1.11.1 =
+*2017-02-08*
+
+* exclude cache for WooCommerce
+* fix load textdomain
+* add Italian (it_IT) translation
+* nonexistent redis support removed (it never got to a usable stable state, mostly due to the chaos with the redis php modules)
+* readme cleaned up for development hibernation
+* donation link removed
+* WP version compatibility bumped
+
+= 1.11.0 =
+*2016-01-15*
+
+* merged filter for HTML before it hits the cache
+* refactored logging
+
+= 1.10.1 =
+*2015-10-30*
+
+* fixed nginx configuration sample snippets
+* nginx configuration moved from Settings tab to Help tab, so if you're looking for the "nginx" tab, you need to look under "Help" on the WP-FFPC Settings page.
+
+= 1.10.0 =
+*2015-10-23*
+
+*IMPORTANT, READ THIS*
+
+* Proper browser cache support:
+    * new options to set real browser cache expiry for singles, taxonomy and home
+    * added Etag support based on browser cache expiry
+    * added proper Expires header according to cache entry generation time + browser cache expiry
+    * added support for Last Modified header for home & taxonomy ( singles already had it) based on the last post modified date within the taxonomy
+
+= 1.9.1 =
+*2015-10-18*
+
+* bugfix for is_writable check failures ( see: https://wordpress.org/support/topic/settings-saved-but-getting-not-saved-error-message)
+* bugfix for memcached.protocol notice
+* typo fixes
+* replace variable with string constant in translatable messages
+
+= 1.9.0 =
+*2015-10-14*
+
+* adding exclude option based on text entry matching ( regex )
+
+= 1.8.4 =
+*2015-10-13*
+
+* changes in HTML debug comment: instead of the former, single comment, now 2 comments are added. The first is added when the cache entry is generated; the second only appears if the page was served from the cached entry. Please note that this last bit will - should - change with every single refresh.
+* backend code is now split into separate files
+* more debug code
 
 = 1.8.3 =
 *2015-05-07*
