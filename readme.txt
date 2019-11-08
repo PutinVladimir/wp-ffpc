@@ -1,3 +1,6 @@
+Dirty mod for support compressed page caching and support it in nginx directly.
+
+
 === WP-FFPC ===
 Contributors: cadeyrn
 Tags: cache, nginx, memcached, apc
